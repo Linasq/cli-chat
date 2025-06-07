@@ -1,3 +1,4 @@
+import time
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import Static, Input
@@ -6,10 +7,20 @@ from textual.reactive import reactive
 #TODO
 # connect with db, add those users to list
 class ContactList(VerticalScroll):
+    active_user = ''
+
     def compose(self) -> ComposeResult:
         # Przykładowe kontakty
         for name in ["Anna", "Bartek", "Celina", "Damian", "Ela"]:
             yield Static(f"👤 {name}", classes="contact")
+
+
+    def get_user(self):
+        return self.active_user
+    
+
+    def set_user(self, name: str):
+        self.active_user = name
 
 
 class ChatDisplay(VerticalScroll):
@@ -35,6 +46,7 @@ class ChatDisplay(VerticalScroll):
 
 
 class ChatClientApp(App):
+    BINDINGS = [("ctrl+q", "on_exit", "Quit the app")]
     CSS = """
     Screen {
         layout: vertical;
@@ -84,8 +96,17 @@ class ChatClientApp(App):
             self.input
         )
 
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         message = event.value.split(' ')
+
+        #check if anything meaningful is written
+        tosend = 0
+        for msg in message:
+            if len(msg):
+                tosend = 1
+                break
+
         # create / open chat with given user
         if message[0].lower() == '/chat':
             self.chat_display.remove_messages()
@@ -97,7 +118,7 @@ class ChatClientApp(App):
         elif message[0].lower() == '/register':
             pass
         # print message and send it to the choosen user
-        elif message[0][0] != '/':
+        elif tosend or message[0][0] != '/' :
             self.chat_display.append_message("Ty", ' '.join(message))
             self.input.value = ""
         # not recognized command
@@ -109,6 +130,12 @@ class ChatClientApp(App):
             self.chat_display.append_message("App", '/register login password - create a new account')
             self.chat_display.append_message("App", 'or just start talking with your friend, when you have already opened chat')
             self.input.value = ""
+
+
+    # quit app, encrypt db, close connection
+    def action_on_exit(self):
+        time.sleep(3)
+        self.exit()
 
 
 
