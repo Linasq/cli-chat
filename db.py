@@ -1,4 +1,5 @@
 import sqlite3
+from sqlite3.dbapi2 import Cursor
 import Crypto.Cipher.AES as aes
 
 def encrypt_db(db_name: str, key: bytes):
@@ -24,7 +25,13 @@ def open_db(db_name: str):
     return cursor
 
 
-def get_names(cursor: sqlite3.Cursor):
+def get_names(cursor: Cursor):
     cursor.execute('select name from chat')
     names = cursor.fetchall()
     return names
+
+
+def get_history(cursor: Cursor, name: str):
+    cursor.execute('select timestamp, text, users from chat where name=?', (name,))
+    chat = cursor.fetchall()
+    return chat

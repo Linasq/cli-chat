@@ -10,12 +10,12 @@ from textual.reactive import reactive
 class ContactList(VerticalScroll):
     def __init__(self) -> None:
         super().__init__()
-        self.active_users = []
+        self.contacts = []
         self.logged_in = False
 
     def compose(self) -> ComposeResult:
         if self.logged_in:
-            for name in self.active_users:
+            for name in self.contacts:
                 yield Static(f"👤 {name}", classes="contact")
         else:
             yield Static(f"Please log in to see your contacts list", classes='contact')
@@ -26,12 +26,12 @@ class ContactList(VerticalScroll):
         self.refresh()
 
 
-    def get_user(self):
-        return self.active_user
+    def get_contact(self):
+        return self.contacts
     
 
-    def set_user(self, name: list):
-        self.active_user = name
+    def set_contact(self, name: list):
+        self.contacts= name
 
 
 class ChatDisplay(VerticalScroll):
@@ -45,9 +45,13 @@ class ChatDisplay(VerticalScroll):
         self.update_messages()
 
 
-    def append_message(self, sender: str, content: str):
-        self.messages.append(f"{sender}: {content}")
-        self.update_messages()
+    def append_message(self, sender: str, content: str, date=None):
+        if not date:
+            self.messages.append(f"{sender}: {content}")
+            self.update_messages()
+        else:
+            self.messages.append(f"[{date}] {sender}: {content}")
+            self.update_messages()
 
 
     def update_messages(self):
@@ -95,8 +99,9 @@ class ChatClientApp(App):
     """
     def __init__(self):
         super().__init__()
-        self.cursor = 0
+        # self.cursor = 0
         self.logged_in = 0
+        self.active_user = ''
 
     def compose(self) -> ComposeResult:
         self.chat_display = ChatDisplay()
@@ -123,22 +128,36 @@ class ChatClientApp(App):
         # check if good login - server action
 
         # db operations
-        db.encrypt_db(f'db/{msg[1]}.sql', b'123') # for test purposes
-        self.cursor = db.open_db(f'db/{msg[1]}.sql')
+        db.decrypt_db(f'db/{msg[1]}.db', b'123') # for test purposes
+        self.cursor = db.open_db(f'db/{msg[1]}.db')
         names = db.get_names(self.cursor)
-        self.contact_list.set_user(names)
+        self.contact_list.set_contact(names)
         self.logged_in = 1
+
+        # notification on chat
+        self.chat_display.remove_messages()
+        self.chat_display.append_message('App', 'Successfully logged in')
+        self.chat_display.append_message('App', 'Now you can chat with others!!')
+        self.chat_display.append_message('App', '/chat username')
 
 
     # create / open chat
     def chat(self, message):
         self.input.value = ""
+        if not self.logged_in:
+            self.chat_display.remove_messages()
+            self.chat_display.append_message('App', 'You are not logged in')
+            return
+
         if len(message) > 2:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: try command "/chat user"')
         elif message[1]:
+            #TODO
             # create requests to db, to get users and history of chat if there is any
-            pass
+            self.active_user = message[1]
+            chat_history = db.get_history(self.cursor, self.active_user)
+            print(chat_history)
         else:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: Please provide user you want to speak with')
@@ -146,14 +165,7 @@ class ChatClientApp(App):
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         message = event.value.split(' ')
-
-        #check if anything meaningful is written
-        tosend = 0
-        for msg in message:
-            if len(msg):
-                tosend = 1
-                break
-
+       
         # create / open chat with given user
         if message[0].lower() == '/chat':
             self.chat(message)
@@ -163,18 +175,18 @@ class ChatClientApp(App):
         # register a new user
         elif message[0].lower() == '/register':
             pass
-        # print message and send it to the choosen user
-        elif tosend or message[0][0] != '/' :
-            self.chat_display.append_message("Ty", ' '.join(message))
-            self.input.value = ""
         # not recognized command
-        else:
+        elif message[0] and message[0][0] == '/':
             self.chat_display.remove_messages()
             self.chat_display.append_message("App", 'Try one of the following commands:')
             self.chat_display.append_message("App", '/chat user - start a chat with user')
             self.chat_display.append_message("App", '/login login password - login to an existing account')
             self.chat_display.append_message("App", '/register login password - create a new account')
             self.chat_display.append_message("App", 'or just start talking with your friend, when you have already opened chat')
+            self.input.value = ""
+        # print message and send it to the choosen user
+        else:
+            self.chat_display.append_message("Ty", ' '.join(message))
             self.input.value = ""
 
 
