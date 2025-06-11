@@ -1,3 +1,4 @@
+from Crypto.Hash import MD5
 import time
 import db
 from textual.app import App, ComposeResult
@@ -5,13 +6,13 @@ from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import Static, Input
 from textual.reactive import reactive
 
-#TODO
-# connect with db, add those users to list
+
 class ContactList(VerticalScroll):
     def __init__(self) -> None:
         super().__init__()
         self.contacts = []
         self.logged_in = False
+
 
     def compose(self) -> ComposeResult:
         if self.logged_in:
@@ -31,8 +32,11 @@ class ContactList(VerticalScroll):
     
 
     def set_contact(self, name: list):
-        self.contacts= name
+        self.contacts = name
 
+
+    def set_login(self, is_logged: bool):
+        self.logged_in = is_logged
 
 class ChatDisplay(VerticalScroll):
     messages = reactive([])
@@ -97,11 +101,15 @@ class ChatClientApp(App):
         padding: 0 1;
     }
     """
+
+
     def __init__(self):
         super().__init__()
         # self.cursor = 0
         self.logged_in = 0
         self.active_user = ''
+        self.group = []
+
 
     def compose(self) -> ComposeResult:
         self.chat_display = ChatDisplay()
@@ -125,24 +133,30 @@ class ChatClientApp(App):
             self.chat_display.append_message('App', 'ERROR: try command "/login user password"')
             return
 
+        #TODO
         # check if good login - server action
+        login = db.sanitize_input(msg[1])
+        hash = MD5.new(msg[2].encode()) # create hash of passwd
 
         # db operations
-        db.decrypt_db(f'db/{msg[1]}.db', b'123') # for test purposes
-        self.cursor = db.open_db(f'db/{msg[1]}.db')
+        db.decrypt_db(f'db/{login}.db', b'123') # for test purposes
+        self.cursor = db.open_db(f'db/{login}.db')
         names = db.get_names(self.cursor)
+        self.contact_list.set_login(True)
         self.contact_list.set_contact(names)
+        self.contact_list.show_contacts()
         self.logged_in = 1
 
         # notification on chat
         self.chat_display.remove_messages()
+        self.chat_display.append_message('App', f'Welcome back: {login}')
         self.chat_display.append_message('App', 'Successfully logged in')
         self.chat_display.append_message('App', 'Now you can chat with others!!')
         self.chat_display.append_message('App', '/chat username')
 
 
     # create / open chat
-    def chat(self, message):
+    def chat(self, message: list[str]):
         self.input.value = ""
         if not self.logged_in:
             self.chat_display.remove_messages()
@@ -155,9 +169,11 @@ class ChatClientApp(App):
         elif message[1]:
             #TODO
             # create requests to db, to get users and history of chat if there is any
-            self.active_user = message[1]
+            user = db.sanitize_input(message[1])
+            self.active_user = user
             chat_history = db.get_history(self.cursor, self.active_user)
-            print(chat_history)
+            self.chat_display.remove_messages()
+            self.chat_display.append_message('App', ';'.join(chat_history))
         else:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: Please provide user you want to speak with')
@@ -186,6 +202,9 @@ class ChatClientApp(App):
             self.input.value = ""
         # print message and send it to the choosen user
         else:
+            #TODO
+            # send over network
+            db.insert_chat(self.cursor, self.active_user, 'Ty', ''.join(message), self.group)
             self.chat_display.append_message("Ty", ' '.join(message))
             self.input.value = ""
 
