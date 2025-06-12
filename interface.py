@@ -1,4 +1,4 @@
-from Crypto.Hash import MD5
+from cryptography.hazmat.primitives.hashes import MD5
 import time
 import db
 from textual.app import App, ComposeResult
@@ -6,25 +6,34 @@ from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import Static, Input
 from textual.reactive import reactive
 
+'''
+TODO
+- dodac przechwytywanie sygnalow lub inne pierdoly, by wyszlo na naszych warunkach
+- dodac szyfrowanie
+- dodac wysylanie wiadomosci przez siec
+- dodac funkcje rejestrujaca uzytkownika
+- dodac funkcje tworzaca grupy i zobaczyc czy dziala wysylanie do wielu na raz ludzi
+'''
+
 
 class ContactList(VerticalScroll):
     def __init__(self) -> None:
         super().__init__()
-        self.contacts = []
+        self.contacts = ()
         self.logged_in = False
 
 
     def compose(self) -> ComposeResult:
+        yield Static(f"Please log in to see your contacts list", classes='contact')
+
+
+    def update_contacts(self):
+        self.remove_children()
         if self.logged_in:
             for name in self.contacts:
-                yield Static(f"👤 {name}", classes="contact")
+                self.mount(Static(f"👤 {name}", classes="contact"))
         else:
-            yield Static(f"Please log in to see your contacts list", classes='contact')
-
-
-    def show_contacts(self):
-        self.logged_in = True
-        self.refresh()
+            self.mount(Static(f"Please log in to see your contacts list", classes='contact'))
 
 
     def get_contact(self):
@@ -32,11 +41,14 @@ class ContactList(VerticalScroll):
     
 
     def set_contact(self, name: list):
-        self.contacts = name
+        self.contacts = [i for ii in name for i in ii]
+        self.logged_in = True
+        self.update_contacts()
 
 
-    def set_login(self, is_logged: bool):
-        self.logged_in = is_logged
+    def set_login(self):
+        self.logged_in = not self.logged_in
+
 
 class ChatDisplay(VerticalScroll):
     messages = reactive([])
@@ -109,6 +121,7 @@ class ChatClientApp(App):
         self.logged_in = 0
         self.active_user = ''
         self.group = []
+        self.username = ''
 
 
     def compose(self) -> ComposeResult:
@@ -135,21 +148,20 @@ class ChatClientApp(App):
 
         #TODO
         # check if good login - server action
-        login = db.sanitize_input(msg[1])
-        hash = MD5.new(msg[2].encode()) # create hash of passwd
+        self.username = db.sanitize_input(msg[1])
+        hash = MD5.
 
         # db operations
-        db.decrypt_db(f'db/{login}.db', b'123') # for test purposes
-        self.cursor = db.open_db(f'db/{login}.db')
+        db.decrypt_db(f'db/{self.username}.db', b'123') # for test purposes
+        self.cursor, self.db = db.open_db(f'db/{self.username}.db')
         names = db.get_names(self.cursor)
-        self.contact_list.set_login(True)
+        self.contact_list.set_login()
         self.contact_list.set_contact(names)
-        self.contact_list.show_contacts()
         self.logged_in = 1
 
         # notification on chat
         self.chat_display.remove_messages()
-        self.chat_display.append_message('App', f'Welcome back: {login}')
+        self.chat_display.append_message('App', f'Welcome back: {self.username}')
         self.chat_display.append_message('App', 'Successfully logged in')
         self.chat_display.append_message('App', 'Now you can chat with others!!')
         self.chat_display.append_message('App', '/chat username')
@@ -173,7 +185,10 @@ class ChatClientApp(App):
             self.active_user = user
             chat_history = db.get_history(self.cursor, self.active_user)
             self.chat_display.remove_messages()
-            self.chat_display.append_message('App', ';'.join(chat_history))
+            if chat_history:
+                self.group = chat_history[0][3].split(',')
+                for msg in chat_history:
+                    self.chat_display.append_message(f'{msg[0]} {msg[1]}', f'{msg[2]}')
         else:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: Please provide user you want to speak with')
@@ -204,14 +219,16 @@ class ChatClientApp(App):
         else:
             #TODO
             # send over network
-            db.insert_chat(self.cursor, self.active_user, 'Ty', ''.join(message), self.group)
+            if self.active_user:
+                db.insert_chat(self.cursor, self.active_user, 'Ty', ''.join(message), self.group)
             self.chat_display.append_message("Ty", ' '.join(message))
             self.input.value = ""
 
 
     # quit app, encrypt db, close connection
     def action_on_exit(self):
-        time.sleep(3)
+        db.close_db(self.cursor, self.db)
+        time.sleep(2)
         self.exit()
 
 
