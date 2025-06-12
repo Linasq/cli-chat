@@ -64,42 +64,52 @@ class PersistentClient:
 
 # ----------------- SERWER ---------------------
 
-def init_server(ip, port, handle_client):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((ip, port))
-    s.listen()
 
-    def client_thread(conn):
+_active_clients = {}  # IP -> socket
+
+def init_server(ip, port, handle_client):
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_sock.bind((ip, port))
+    server_sock.listen()
+
+    def client_thread(conn, addr):
+        client_ip = addr[0]
+        _active_clients[client_ip] = conn
         try:
             while True:
                 data = b''
                 while len(data) < MSG_SIZE:
                     packet = conn.recv(MSG_SIZE - len(data))
                     if not packet:
-                        return
+                        raise ConnectionError("Client disconnected")
                     data += packet
-                handle_client(data)
+                handle_client(client_ip, data)
+        except Exception:
+            pass
         finally:
             conn.close()
+            _active_clients.pop(client_ip, None)
 
     def accept_loop():
         while True:
-            conn, addr = s.accept()
-            threading.Thread(target=client_thread, args=(conn,), daemon=True).start()
+            conn, addr = server_sock.accept()
+            threading.Thread(target=client_thread, args=(conn, addr), daemon=True).start()
 
     threading.Thread(target=accept_loop, daemon=True).start()
+    return server_sock
 
-    return s
 
-def send_to_client(ip, port, message_bytes):
+def send_to_client(client_ip, message_bytes):
+    conn = _active_clients.get(client_ip)
+    if not conn:
+        return False
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((ip, port))
         if len(message_bytes) > MSG_SIZE:
             message_bytes = message_bytes[:MSG_SIZE]
         else:
             message_bytes = message_bytes.ljust(MSG_SIZE, b'\x00')
-        s.sendall(message_bytes)
-        s.close()
+        conn.sendall(message_bytes)
+        return True
     except Exception:
-        pass
+        _active_clients.pop(client_ip, None)
+        return False
