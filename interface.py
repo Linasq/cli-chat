@@ -138,7 +138,6 @@ class ChatClientApp(App):
 
 
     def login(self, msg: list[str]):
-        self.input.value = ""
         if len(msg) != 3:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: try command "/login user password"')
@@ -168,11 +167,11 @@ class ChatClientApp(App):
         self.chat_display.append_message('App', 'Successfully logged in')
         self.chat_display.append_message('App', 'Now you can chat with others!!')
         self.chat_display.append_message('App', '/chat username')
+        return
 
 
     # create / open chat
     def chat(self, message: list[str]):
-        self.input.value = ""
         if not self.logged_in:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'You are not logged in')
@@ -193,13 +192,12 @@ class ChatClientApp(App):
         else:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: Please provide user you want to speak with')
+        return
 
 
     def register(self, msg: list[str]):
-        self.chat_display.remove_messages()
-
         if len(msg) != 3:
-            self.chat_display.append_message('App', 'ERROR: wrong usage of command "/register". Try: ')
+            self.chat_display.append_message('App', 'ERROR: wrong usage of command "/register". Try:')
             self.chat_display.append_message('App', '/register user password')
             return
 
@@ -213,19 +211,50 @@ class ChatClientApp(App):
 
         # if there was nothing wrong
         self.chat_display.append_message('App', f'SUCCESS: Now you can log in to your account. Your username is: {username}')
+        return 
+
+
+    # TODO
+    # while creating, send and add to db new msg, thanks this we will save users
+    def add_group(self, msg: list[str]):
+        self.chat_display.remove_messages()
+        self.active_user = ''
+
+        if len(msg) != 3:
+            self.chat_display.append_message('App', f'ERROR: wrong usage of command "/group". Try:')
+            self.chat_display.append_message('App', f'/group group_name user1,user2,...')
+            return
+
+        if not self.logged_in:
+            self.chat_display.append_message('App', f'ERROR: you are not logged in')
+            return
+
+
+        name = db.sanitize_input(msg[1])
+        group = [db.sanitize_input(i) for i in msg[2].split(',')]
+        if self.username not in group:
+            group.append(self.username)
+
+        # TODO check if users are registered
+
+        # if everyone is registered
+        db.get_history(self.cursor, name) # just creating table
+        db.insert_chat(self.cursor, name, 'APP', f'Successfully created group "{name}"', group) # add msg
+        names = db.get_names(self.cursor) # update contact list
+        self.contact_list.set_contact(names)
         return
 
 
     # TODO
-    # create group chat, in self.group - there will be all users in chat
-    # we need to check if all are registered
-    # while creating, send and add to db new msg, thanks this we will save users
-    def add_group(self, msg: list[str]):
+    # while getting msg from server, we need to recognize 
+    # whether it is message from server or from other user
+    def recv_msg(self, *args):
         pass
 
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         message = event.value.split(' ')
+        self.input.value = ""
        
         # create / open chat with given user
         if message[0].lower() == '/chat':
@@ -236,10 +265,12 @@ class ChatClientApp(App):
         # register a new user
         elif message[0].lower() == '/register':
             self.register(message)
-        elif message[0].lower() == '/exit' or ':q':
-            self.action_on_exit()
+        # create group of users
         elif message[0].lower() == '/group':
             self.add_group(message)
+        # exit from app
+        elif message[0].lower() == '/exit' or message[0].lower() == ':q':
+            self.action_on_exit()
         # not recognized command
         elif message[0] and message[0][0] == '/':
             self.chat_display.remove_messages()
@@ -257,6 +288,8 @@ class ChatClientApp(App):
             # send over network
             if self.active_user:
                 db.insert_chat(self.cursor, self.active_user, 'Ty', ''.join(message), self.group)
+            else:
+                self.chat_display.append_message("App", 'You have not choosen user to write to')
             self.chat_display.append_message("Ty", ' '.join(message))
             self.input.value = ""
 
@@ -265,7 +298,10 @@ class ChatClientApp(App):
     def action_on_exit(self):
         # TODO
         # encrypt db, close connection with server, exit
-        db.close_db(self.cursor, self.db)
+        try:
+            db.close_db(self.cursor, self.db)
+        except AttributeError:
+            pass
         time.sleep(2)
         self.exit()
 
