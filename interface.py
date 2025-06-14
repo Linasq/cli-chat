@@ -1,4 +1,4 @@
-from cryptography.hazmat.primitives.hashes import MD5
+from cryptography.hazmat.primitives.hashes import Hash, MD5
 import time
 import db
 from textual.app import App, ComposeResult
@@ -8,10 +8,8 @@ from textual.reactive import reactive
 
 '''
 TODO
-- dodac przechwytywanie sygnalow lub inne pierdoly, by wyszlo na naszych warunkach
 - dodac szyfrowanie
 - dodac wysylanie wiadomosci przez siec
-- dodac funkcje rejestrujaca uzytkownika
 - dodac funkcje tworzaca grupy i zobaczyc czy dziala wysylanie do wielu na raz ludzi
 '''
 
@@ -146,12 +144,17 @@ class ChatClientApp(App):
             self.chat_display.append_message('App', 'ERROR: try command "/login user password"')
             return
 
-        #TODO
-        # check if good login - server action
         self.username = db.sanitize_input(msg[1])
-        hash = MD5.
+        hash = Hash(MD5()) # using military grade hash function
+        hash.update(msg[2].encode())
+        ready_hash = hash.finalize()
+
+        # TODO
+        # check if good login - server action
 
         # db operations
+        # TODO
+        # get key to decrypt db
         db.decrypt_db(f'db/{self.username}.db', b'123') # for test purposes
         self.cursor, self.db = db.open_db(f'db/{self.username}.db')
         names = db.get_names(self.cursor)
@@ -179,8 +182,6 @@ class ChatClientApp(App):
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: try command "/chat user"')
         elif message[1]:
-            #TODO
-            # create requests to db, to get users and history of chat if there is any
             user = db.sanitize_input(message[1])
             self.active_user = user
             chat_history = db.get_history(self.cursor, self.active_user)
@@ -194,6 +195,35 @@ class ChatClientApp(App):
             self.chat_display.append_message('App', 'ERROR: Please provide user you want to speak with')
 
 
+    def register(self, msg: list[str]):
+        self.chat_display.remove_messages()
+
+        if len(msg) != 3:
+            self.chat_display.append_message('App', 'ERROR: wrong usage of command "/register". Try: ')
+            self.chat_display.append_message('App', '/register user password')
+            return
+
+        username = db.sanitize_input(msg[1])
+        password = Hash(MD5())
+        password.update(msg[2].encode())
+        ready_pass = password.finalize()
+
+        # TODO
+        # send to server
+
+        # if there was nothing wrong
+        self.chat_display.append_message('App', f'SUCCESS: Now you can log in to your account. Your username is: {username}')
+        return
+
+
+    # TODO
+    # create group chat, in self.group - there will be all users in chat
+    # we need to check if all are registered
+    # while creating, send and add to db new msg, thanks this we will save users
+    def add_group(self, msg: list[str]):
+        pass
+
+
     def on_input_submitted(self, event: Input.Submitted) -> None:
         message = event.value.split(' ')
        
@@ -205,7 +235,11 @@ class ChatClientApp(App):
             self.login(message)
         # register a new user
         elif message[0].lower() == '/register':
-            pass
+            self.register(message)
+        elif message[0].lower() == '/exit' or ':q':
+            self.action_on_exit()
+        elif message[0].lower() == '/group':
+            self.add_group(message)
         # not recognized command
         elif message[0] and message[0][0] == '/':
             self.chat_display.remove_messages()
@@ -213,11 +247,13 @@ class ChatClientApp(App):
             self.chat_display.append_message("App", '/chat user - start a chat with user')
             self.chat_display.append_message("App", '/login login password - login to an existing account')
             self.chat_display.append_message("App", '/register login password - create a new account')
+            self.chat_display.append_message("App", '/group group_name user1,user2,... - create group group_name with users seperated with coma')
+            self.chat_display.append_message("App", '/exit or :q or ctrl+q to quit')
             self.chat_display.append_message("App", 'or just start talking with your friend, when you have already opened chat')
             self.input.value = ""
         # print message and send it to the choosen user
         else:
-            #TODO
+            # TODO
             # send over network
             if self.active_user:
                 db.insert_chat(self.cursor, self.active_user, 'Ty', ''.join(message), self.group)
@@ -227,6 +263,8 @@ class ChatClientApp(App):
 
     # quit app, encrypt db, close connection
     def action_on_exit(self):
+        # TODO
+        # encrypt db, close connection with server, exit
         db.close_db(self.cursor, self.db)
         time.sleep(2)
         self.exit()
