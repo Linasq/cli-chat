@@ -1,11 +1,14 @@
-from network_backend import PersistentClient
+from network_backend import PersistentClient, discover_server
 
 def handle_message(message_bytes):
     print("Otrzymano od serwera:", message_bytes.rstrip(b'\x00').decode('utf-8', 'replace'))
 
+ip,port = discover_server()
+
+
 if __name__ == "__main__":
     client = PersistentClient()
-    if client.connect("192.168.18.101", 12345, handle_message):
+    if client.connect(ip, port, handle_message):
         print("Połączono z serwerem.")
         try:
             while True:
