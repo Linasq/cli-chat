@@ -2,6 +2,7 @@ import socket
 import threading
 import select
 import struct
+from typing import Callable
 
 MSG_SIZE = 2048
 MULTICAST_GROUP = '224.0.0.1'
@@ -37,7 +38,7 @@ def start_multicast_responder(tcp_ip, tcp_port):
             continue
 
 
-def init_server(ip, port, handle_client):
+def init_server(ip:str, port:str, handle_client: Callable[[str,bytes], None]):
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind((ip, port))
@@ -85,16 +86,16 @@ def init_server(ip, port, handle_client):
     return server_sock
 
 
-def send_to_client(client_ip, message_bytes):
+def send_to_client(client_ip:str, message: bytes):
     conn = active_clients.get(client_ip)
     if not conn:
         return False
     try:
-        if len(message_bytes) > MSG_SIZE:
-            message_bytes = message_bytes[:MSG_SIZE]
+        if len(message) > MSG_SIZE:
+            message = message[:MSG_SIZE]
         else:
-            message_bytes = message_bytes.ljust(MSG_SIZE, b'\x00')
-        conn.sendall(message_bytes)
+            message = message.ljust(MSG_SIZE, b'\x00')
+        conn.sendall(message)
         return True
     except Exception:
         conn.close()
@@ -126,7 +127,7 @@ class PersistentClient:
         self.thread = None
         self.handle_message = None
 
-    def connect(self, ip, port, handle_message):
+    def connect(self, ip:str, port:str, handle_message: Callable[[bytes], None]):
         try:
             self.handle_message = handle_message
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -149,15 +150,15 @@ class PersistentClient:
         except Exception:
             self.running = False
 
-    def send_message(self, message_bytes):
+    def send_message(self, message: bytes):
         if not self.running or not self.sock:
             return
         try:
-            if len(message_bytes) > MSG_SIZE:
-                message_bytes = message_bytes[:MSG_SIZE]
+            if len(message) > MSG_SIZE:
+                message = message[:MSG_SIZE]
             else:
-                message_bytes = message_bytes.ljust(MSG_SIZE, b'\x00')
-            self.sock.sendall(message_bytes)
+                message = message.ljust(MSG_SIZE, b'\x00')
+            self.sock.sendall(message)
         except Exception:
             self.running = False
 
