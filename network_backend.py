@@ -131,20 +131,20 @@ def init_server(ip, port, handle_client):
                     poller.register(conn, select.POLLIN)
                 elif event & select.POLLIN:
                     conn = sock
+                    client_ip = None
                     try:
+                        client_ip = conn.getpeername()[0]
                         data = conn.recv(MSG_SIZE)
                         if data:
-                            client_ip = conn.getpeername()[0]
                             handle_client(client_ip, data)
                         else:
                             raise ConnectionError
                     except:
                         poller.unregister(fd)
                         conn.close()
-                        ip = conn.getpeername()[0]
-                        _active_clients.pop(ip, None)
-                        fd_to_sock.pop(fd, None)
-
+                        if client_ip:
+                            _active_clients.pop(client_ip, None)
+                            fd_to_sock.pop(fd, None)    
     threading.Thread(target=server_loop, daemon=True).start()
     threading.Thread(target=lambda: _start_multicast_responder(ip, port), daemon=True).start()
 
