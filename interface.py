@@ -139,10 +139,6 @@ class ChatClientApp(App):
         )
 
     
-    def set_msg(self, msg: bytes):
-        self.msg = msg
-
-
     def login(self, msg: list[str]):
         if len(msg) != 3:
             self.chat_display.remove_messages()
@@ -152,8 +148,19 @@ class ChatClientApp(App):
         self.username = db.sanitize_input(msg[1])
         hash = crypto.hash_md5(msg[2].encode())
 
+        payload = {'type':'login', 'username':self.username, 'password':hash}
+        self.client.send_message(json.dumps(payload).encode())
+
         # TODO
         # check if good login - server action
+        
+        if not self.client.event.wait(2):
+            self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
+            return
+
+        if self.error_msg != 'OK':
+            self.chat_display.append_message('App', self.error_msg)
+            return
 
         # db operations
         # TODO
@@ -199,7 +206,7 @@ class ChatClientApp(App):
         return
 
 
-    def register(self, msg: list[str], client: net.PersistentClient):
+    def register(self, msg: list[str]):
         if len(msg) != 3:
             self.chat_display.append_message('App', 'ERROR: wrong usage of command "/register". Try:')
             self.chat_display.append_message('App', '/register user password')
@@ -212,19 +219,19 @@ class ChatClientApp(App):
 
         # TODO
         # send to server
-        client.send_message(json.dumps(to_send).encode())
-        event = client.get_event()
+        self.client.send_message(json.dumps(to_send).encode())
 
-        if not event.wait(2):
+        if not self.client.event.wait(2):
             self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
             return
 
-
-
-        
+        if self.error_msg != 'OK':
+            self.chat_display.append_message('App', self.error_msg)
+            return
 
         # if there was nothing wrong
         self.chat_display.append_message('App', f'SUCCESS: Now you can log in to your account. Your username is: {username}')
+        self.client.set_event()
         return 
 
 
@@ -243,13 +250,25 @@ class ChatClientApp(App):
             self.chat_display.append_message('App', f'ERROR: you are not logged in')
             return
 
-
         name = db.sanitize_input(msg[1])
         group = [db.sanitize_input(i) for i in msg[2].split(',')]
         if self.username not in group:
             group.append(self.username)
 
         # TODO check if users are registered
+        for user in group:
+            payload = {'type': 'is_registered', 'username':user}
+            self.client.send_message(json.dumps(payload).encode())
+
+            if not self.client.event.wait(2):
+                self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
+                return
+
+            if self.error_msg != 'OK':
+                self.chat_display.append_message('App', self.error_msg)
+                return
+
+            self.client.set_event()
 
         # if everyone is registered
         db.get_history(self.cursor, name) # just creating table
@@ -262,8 +281,20 @@ class ChatClientApp(App):
     # TODO
     # while getting msg from server, we need to recognize 
     # whether it is message from server or from other user
-    def recv_msg(self, *args):
-        pass
+    def recv_msg(self, data: bytes):
+        msg = json.loads(data)
+
+        if msg['type'] == 'register' or msg['type'] == 'login' or msg['type'] == 'is_registered':
+            self.error_msg = msg['text']
+            self.client.set_event()
+        elif msg['type'] == 'msg':
+            db.insert_chat(self.cursor, msg['name'], msg['src'], msg['text'], [''])
+            if self.active_user == msg['username']:
+                self.chat_display.append_message(msg['src'], msg['text'])
+
+
+    def set_client(self, client: net.PersistentClient):
+        self.client = client
 
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -301,11 +332,13 @@ class ChatClientApp(App):
             # TODO
             # send over network
             if self.active_user:
-                db.insert_chat(self.cursor, self.active_user, 'Ty', ''.join(message), self.group)
+                db.insert_chat(self.cursor, self.active_user, 'Ty', ' '.join(message), self.group)
+                dst = self.group if self.group else self.active_user
+                payload = {'type':'msg', 'src':self.username, 'name':self.active_user, 'dst':dst}
+                self.client.send_message(json.dumps(payload).encode())
             else:
                 self.chat_display.append_message("App", 'You have not choosen user to write to')
             self.chat_display.append_message("Ty", ' '.join(message))
-            self.input.value = ""
 
 
     # quit app, encrypt db, close connection
