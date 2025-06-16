@@ -1,6 +1,8 @@
-from cryptography.hazmat.primitives.hashes import Hash, MD5
-import time
+import network_backend as net
+import crypto_functions as crypto
 import db
+import time
+import json
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.widgets import Static, Input
@@ -136,6 +138,10 @@ class ChatClientApp(App):
             self.input
         )
 
+    
+    def set_msg(self, msg: bytes):
+        self.msg = msg
+
 
     def login(self, msg: list[str]):
         if len(msg) != 3:
@@ -144,9 +150,7 @@ class ChatClientApp(App):
             return
 
         self.username = db.sanitize_input(msg[1])
-        hash = Hash(MD5()) # using military grade hash function
-        hash.update(msg[2].encode())
-        ready_hash = hash.finalize()
+        hash = crypto.hash_md5(msg[2].encode())
 
         # TODO
         # check if good login - server action
@@ -195,19 +199,20 @@ class ChatClientApp(App):
         return
 
 
-    def register(self, msg: list[str]):
+    def register(self, msg: list[str], client: net.PersistentClient):
         if len(msg) != 3:
             self.chat_display.append_message('App', 'ERROR: wrong usage of command "/register". Try:')
             self.chat_display.append_message('App', '/register user password')
             return
 
         username = db.sanitize_input(msg[1])
-        password = Hash(MD5())
-        password.update(msg[2].encode())
-        ready_pass = password.finalize()
+        password = crypto.hash_md5(msg[2].encode())
+
+        to_send = {'type':'register', 'login':username, 'password':password}
 
         # TODO
         # send to server
+        client.send_message(json.dumps(to_send).encode())
 
         # if there was nothing wrong
         self.chat_display.append_message('App', f'SUCCESS: Now you can log in to your account. Your username is: {username}')
