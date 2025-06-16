@@ -126,6 +126,24 @@ class PersistentClient:
         self.running = False
         self.thread = None
         self.handle_message = None
+        self.lock = threading.Lock()
+        self.event = threading.Event()
+
+
+    def get_lock(self):
+        return self.lock
+
+
+    def get_event(self):
+        return self.event
+
+
+    def set_event(self):
+        if self.event.is_set:
+            self.event.clear()
+        else:
+            self.event.set()
+
 
     def connect(self, ip:str, port:str, handle_message: Callable[[bytes], None]):
         try:

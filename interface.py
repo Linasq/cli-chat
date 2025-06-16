@@ -213,6 +213,15 @@ class ChatClientApp(App):
         # TODO
         # send to server
         client.send_message(json.dumps(to_send).encode())
+        event = client.get_event()
+
+        if not event.wait(2):
+            self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
+            return
+
+
+
+        
 
         # if there was nothing wrong
         self.chat_display.append_message('App', f'SUCCESS: Now you can log in to your account. Your username is: {username}')
