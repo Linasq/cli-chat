@@ -5,7 +5,9 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.backends import default_backend
 # --- Helpers ---
 
 def kdf(*shared_secrets: bytes) -> bytes:
@@ -169,3 +171,53 @@ def establish_session_key_responder(
 
     return SK, md5_hash
 
+
+def encrypt_message(key: bytes, msg: bytes) -> bytes:
+    """
+    Encrypts a message using AES-256 in ECB mode with PKCS7 padding.
+
+    Args:
+        key (bytes): 32-byte AES key (256 bits).
+        msg (bytes): Plaintext message to encrypt.
+
+    Returns:
+        bytes: Ciphertext.
+    """
+    if len(key) != 32:
+        raise ValueError("Key must be 32 bytes long (256 bits)")
+
+    # Padding (PKCS7)
+    padder = padding.PKCS7(128).padder()
+    padded_data = padder.update(msg) + padder.finalize()
+
+    # Cipher AES-256 in ECB mode
+    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+
+    return ciphertext
+
+def decrypt_message(key: bytes, ciphertext: bytes) -> bytes:
+    """
+    Decrypts a message encrypted using AES-256 in ECB mode with PKCS7 padding.
+
+    Args:
+        key (bytes): 32-byte AES key (256 bits).
+        ciphertext (bytes): Ciphertext to decrypt.
+
+    Returns:
+        bytes: Decrypted plaintext message.
+    """
+    if len(key) != 32:
+        raise ValueError("Key must be 32 bytes long (256 bits)")
+
+    # Cipher AES-256 in ECB mode
+    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
+    decryptor = cipher.decryptor()
+    padded_data = decryptor.update(ciphertext) + decryptor.finalize()
+
+    # Usunięcie paddingu (PKCS7)
+    unpadder = padding.PKCS7(128).unpadder()
+    msg = unpadder.update(padded_data) + unpadder.finalize()
+
+    return msg
