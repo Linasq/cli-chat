@@ -63,3 +63,53 @@ def sanitize_input(msg:str) -> str:
     for i in bad_actors:
         msg=msg.replace(i, '')
     return msg
+
+
+def srv_open_db(db_name: str):
+    db = sqlite3.connect(db_name)
+    cursor = db.cursor()
+    cursor.execute(f'''create table if not exists registered_users(
+        id INTEGER PRIMARY KEY autoincrement,
+        username TEXT,
+        password TEXT
+    );''')
+
+    '''
+    timestamp
+    src - nick wysylajacego
+    dst - nick do ktorego idzie wiadomosc
+    text - wiadomosc
+    '''
+    cursor.execute(f'''create table if not exists messages(
+        id INTEGER PRIMARY KEY autoincrement,
+        timestamp DATE,
+        src TEXT,
+        dst TEXT,
+        text TEXT,
+    );''')
+    return cursor, db
+
+
+def srv_get_messages(cursor: sqlite3.Cursor, username: str):
+    cursor.execute(f'''
+        select timestamp, src, dst, text from messages
+        where dst like '?'
+           ''', username)
+
+    msg = cursor.fetchall()
+    return msg
+
+
+def srv_insert_messages(cursor: sqlite3.Cursor, table_name: str, *args):
+    if table_name == 'registered_users' and len(args) == 2:
+        cursor.execute(f'''
+            insert into {table_name}(username, password)
+                    values(?, ?)''',
+                       (args[0], args[1]))
+
+    elif table_name == 'messages' and len(args) == 4:
+        cursor.execute(f'''
+            insert into {table_name}(timestamp, src, dst, text)
+                    values(?, ?, ?, ?)''',
+                       (args[0], args[1], args[2], args[3]))
+
