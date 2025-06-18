@@ -102,6 +102,14 @@ def srv_get_messages(cursor: sqlite3.Cursor, username: str):
     return msg
 
 
+def srv_get_logins(cursor: sqlite3.Cursor):
+    cursor.execute('''
+        select username from registered_users
+                   ''')
+    users = cursor.fetchall()
+    return users
+
+
 def srv_insert_messages(cursor: sqlite3.Cursor, table_name: str, *args):
     if table_name == 'registered_users' and len(args) == 2:
         cursor.execute(f'''
