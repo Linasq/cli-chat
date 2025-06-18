@@ -128,6 +128,7 @@ class ChatClientApp(App):
         self.active_user = ''
         self.group = []
         self.username = ''
+        self.error_msg = ''
 
 
     def compose(self) -> ComposeResult:

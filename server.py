@@ -1,4 +1,3 @@
-from os import wait
 from typing import Any, Dict, Tuple
 import json
 from db import srv_open_db, srv_insert_messages , srv_get_logins # assuming these functions are in the db module
@@ -7,7 +6,7 @@ import crypto_functions as crypto
 
 active_clients = {} # username -> ip
 DB_NAME = "server.db"  # or another path, depending on your project structure
-curcor, db = srv_open_db(DB_NAME)
+# cursor, db = srv_open_db(DB_NAME)
 
 
 published_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"IK_sign_pub", "IK_dh_pub", "PK_pub", "SPK_sig"}
@@ -20,13 +19,14 @@ def update_active_clients():
         if ip not in ips:
             active_clients.pop(name)
 
+
 def handle_client(ip: str, msg: bytes) -> None:
     """
     Handles a single client request.
     """
     try:
         data = json.loads(msg.decode())
-        msg_type= data.get("type")
+        msg_type = data.get("type")
 
         if msg_type == "publish_keys":
             handle_publish_keys(ip, data)
@@ -39,7 +39,7 @@ def handle_client(ip: str, msg: bytes) -> None:
         elif msg_type == "register":
             register_handler(ip, data)
         elif msg_type == "login":
-            login_handler(ip, data, curcor)
+            login_handler(ip, data)#, cursor)
         elif msg_type == "msg":
             handle_message(data)
 
@@ -94,8 +94,6 @@ def handle_fetch_ephemeral(ip: str, data: Dict[str, Any]) -> None:
         net.send_to_client(ip, json.dumps({"error": "No ephemeral key found for user"}).encode())
  
 
-
-
 def handle_message(message: dict):
     update_active_clients()
     src_username = message.get("src")
@@ -113,21 +111,19 @@ def handle_message(message: dict):
         net.send_to_client(dst_ip, json.dumps(msg_to_send).encode())
     except Exception as e:
          try:
-            cursor, db = srv_open_db(DB_NAME)
-            srv_insert_messages(cursor,"messages",src_username,dst_username,data)
-            db.commit()
-            db.close()
+            # cursor, db = srv_open_db(DB_NAME)
+            # srv_insert_messages(db, cursor,"messages",src_username,dst_username,data)
+            srv_insert_messages("messages",src_username,dst_username,data)
+            # db.commit()
+            # db.close()
             return
          except:
             print("Failed saving message in DB!")
             return
 
 
-
-
-
-
-
+# TODO
+# sprawdzic czy chuj przypadkiem nie jest juz zarejestrowany
 def register_handler(ip: str, message: dict) -> None:
     """
     Handles incoming 'register' messages from a client and stores the user in the database.
@@ -145,14 +141,15 @@ def register_handler(ip: str, message: dict) -> None:
 
     try:
         # Open connection to the database and create tables if they don't exist
-        cursor, db = srv_open_db(DB_NAME)
+        # cursor, db = srv_open_db(DB_NAME)
 
         # Insert the new user into the registered_users table
-        srv_insert_messages(cursor, 'registered_users', username, crypto.hash_md5(password))
+        # srv_insert_messages(db, cursor, 'registered_users', username, crypto.hash_md5(password.encode()))
+        srv_insert_messages('registered_users', username, crypto.hash_md5(password.encode()))
 
         # Commit changes and close the database connection
-        db.commit()
-        db.close()
+        # db.commit()
+        # db.close()
         # type: register
         # text: OK
         payload = {
@@ -169,7 +166,7 @@ def register_handler(ip: str, message: dict) -> None:
         net.send_to_client(ip,json.dumps(error_response).encode())
 
 
-def login_handler(ip:str, message: dict, cursor) -> None:
+def login_handler(ip:str, message: dict, cursor=None) -> None:
     """
     Handles 'login' messages: checks if username exists and verifies password hash.
     Assumes the database connection is already open and cursor is passed in.
@@ -185,11 +182,12 @@ def login_handler(ip:str, message: dict, cursor) -> None:
         net.send_to_client(ip, json.dumps(error_response).encode())
         return
 
+    print(str(srv_get_logins(username)))
     try:
         # Get list of registered usernames
         # Fetch stored password hash for the user
         try:
-            db_username, db_password = srv_get_logins(cursor, username)[0]
+            db_username, db_password = srv_get_logins(username)[0]
         except:
             error_response = {
                 "type": "login",

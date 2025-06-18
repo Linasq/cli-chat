@@ -93,34 +93,40 @@ def srv_open_db(db_name: str):
     return cursor, db
 
 
-def srv_get_messages(cursor: sqlite3.Cursor, username: str):
+def srv_get_messages(username: str):#(cursor: sqlite3.Cursor, username: str):
+    cursor, db = open_db('server.db')
     cursor.execute(f'''
         select timestamp, src, dst, msg from messages
-        where dst like '?'
-           ''', username)
+        where dst like ?
+           ''', (username, ))
 
     msg = cursor.fetchall()
+    close_db(cursor, db)
     return msg
 
 
-def srv_get_logins(cursor: sqlite3.Cursor, username: str):
+def srv_get_logins(username: str):#(cursor: sqlite3.Cursor, username: str):
+    cursor, db = open_db('server.db')
     cursor.execute('''
-        select username, password from registered_users where username like '?'
-                   ''', username)
+        select username, password from registered_users where username like ?
+                   ''', (username,))
     users = cursor.fetchall()
+    close_db(cursor, db)
     return users
 
 
-def srv_insert_messages(cursor: sqlite3.Cursor, table_name: str, *args):
+def srv_insert_messages(table_name: str, *args):#(db: sqlite3.Connection, cursor: sqlite3.Cursor, table_name: str, *args):
+    cursor, db = srv_open_db('server.db')
     if table_name == 'registered_users' and len(args) == 2:
         cursor.execute(f'''
             insert into {table_name}(username, password)
                     values(?, ?)''',
-                       (args[0], args[1]))
+                       (args[0], args[1],))
 
     elif table_name == 'messages' and len(args) == 4:
         cursor.execute(f'''
             insert into {table_name}(timestamp, src, dst, msg)
                     values(?, ?, ?, ?)''',
-                       (args[0], args[1], args[2], args[3]))
-
+                       (args[0], args[1], args[2], args[3],))
+    
+    close_db(cursor, db)
