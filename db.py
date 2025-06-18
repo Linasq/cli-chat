@@ -78,6 +78,7 @@ def srv_open_db(db_name: str):
     timestamp
     src - nick wysylajacego
     dst - nick do ktorego idzie wiadomosc
+    name - nazwa uzytkownika / grupy
     text - wiadomosc
     '''
     cursor.execute(f'''create table if not exists messages(
@@ -85,7 +86,8 @@ def srv_open_db(db_name: str):
         timestamp DATE,
         src TEXT,
         dst TEXT,
-        text TEXT,
+        name TEXT,
+        text TEXT
     );''')
     return cursor, db
 
