@@ -2,6 +2,7 @@ from base64 import b64decode, b64encode
 import sqlite3
 from cryptography.hazmat.primitives.ciphers.algorithms import AES256
 from datetime import datetime
+from os import mkdir
 
 def encrypt_db(db_name: str, key: bytes):
     # cipher = aes.new(key, aes.MODE_ECB)
@@ -14,7 +15,12 @@ def decrypt_db(db_name: str, key: bytes):
 
 
 def open_db(db_name: str):
-    db = sqlite3.connect(db_name)
+    try:
+        db = sqlite3.connect(db_name)
+    except:
+        mkdir('db')
+        db = sqlite3.connect(db_name)
+
     cursor = db.cursor()
     return cursor, db
 
@@ -80,7 +86,7 @@ def srv_open_db(db_name: str):
     src - nick wysylajacego
     dst - nick do ktorego idzie wiadomosc
     name - nazwa uzytkownika / grupy
-    text - wiadomosc
+    msg - wiadomosc
     '''
     cursor.execute(f'''create table if not exists messages(
         id INTEGER PRIMARY KEY autoincrement,

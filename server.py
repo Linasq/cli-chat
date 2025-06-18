@@ -15,7 +15,7 @@ ephemeral_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"EK_pub"}
 
 def update_active_clients():
     ips = net.get_active_clients()
-    for name, ip in active_clients:
+    for name, ip in active_clients.items():
         if ip not in ips:
             active_clients.pop(name)
 
@@ -27,6 +27,7 @@ def handle_client(ip: str, msg: bytes) -> None:
     try:
         data = json.loads(msg.decode())
         msg_type = data.get("type")
+        print(msg_type)
 
         if msg_type == "publish_keys":
             handle_publish_keys(ip, data)
