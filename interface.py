@@ -204,6 +204,8 @@ class ChatClientApp(App):
                 self.group = chat_history[0][3].split(',')
                 for msg in chat_history:
                     self.chat_display.append_message(f'{msg[0]} {msg[1]}', f'{msg[2]}')
+            names = db.get_names(self.cursor)
+            self.contact_list.set_contact(names)
         else:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: Please provide user you want to speak with')
@@ -338,7 +340,7 @@ class ChatClientApp(App):
             # send over network
             if self.active_user:
                 db.insert_chat(self.cursor, get_time(), self.active_user, 'Ty', ' '.join(message), self.group)
-                if self.group:
+                if self.group != [""]:
                     dst = self.group
                     name = self.active_user
                 else:
