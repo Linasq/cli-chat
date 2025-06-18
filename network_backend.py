@@ -145,7 +145,7 @@ class PersistentClient:
             self.event.set()
 
 
-    def connect(self, ip:str, port:str, handle_message: Callable[[bytes], None]):
+    def connect(self, ip:str, port:int, handle_message: Callable[[bytes], None]):
         try:
             self.handle_message = handle_message
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
