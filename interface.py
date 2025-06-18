@@ -286,12 +286,15 @@ class ChatClientApp(App):
         msg = json.loads(data)
 
         if msg['type'] == 'register' or msg['type'] == 'login' or msg['type'] == 'is_registered':
-            self.error_msg = msg['text']
+            self.error_msg = msg['msg']
             self.client.set_event()
         elif msg['type'] == 'msg':
-            db.insert_chat(self.cursor, msg['name'], msg['src'], msg['text'], [''])
+            if msg['name']:
+                db.insert_chat(self.cursor, msg['src'], msg['src'], msg['msg'], [''])
+            else:
+                db.insert_chat(self.cursor, msg['name'], msg['src'], msg['msg'], [''])
             if self.active_user == msg['username']:
-                self.chat_display.append_message(msg['src'], msg['text'])
+                self.chat_display.append_message(msg['src'], msg['msg'])
 
 
     def set_client(self, client: net.PersistentClient):
@@ -334,8 +337,13 @@ class ChatClientApp(App):
             # send over network
             if self.active_user:
                 db.insert_chat(self.cursor, self.active_user, 'Ty', ' '.join(message), self.group)
-                dst = self.group if self.group else self.active_user
-                payload = {'type':'msg', 'src':self.username, 'name':self.active_user, 'dst':dst, 'msg':' '.join(message)}
+                if self.group:
+                    dst = self.group
+                    name = self.active_user
+                else:
+                    dst = self.active_user
+                    name = ''
+                payload = {'type':'msg', 'src':self.username, 'name':name, 'dst':dst, 'msg':' '.join(message)}
                 self.client.send_message(json.dumps(payload).encode())
             else:
                 self.chat_display.append_message("App", 'You have not choosen user to write to')

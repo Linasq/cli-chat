@@ -10,16 +10,6 @@ MULTICAST_PORT = 50000
 active_clients = {}  # IP -> socket
 
 
-def recv_exact(conn, size):
-    data = b''
-    while len(data) < size:
-        chunk = conn.recv(size - len(data))
-        if not chunk:
-            raise ConnectionError("Client disconnected")
-        data += chunk
-    return data
-
-
 def start_multicast_responder(tcp_ip, tcp_port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -70,7 +60,7 @@ def init_server(ip:str, port:int, handle_client: Callable[[str,bytes], None]):
                     conn = sock
                     try:
                         client_ip = conn.getpeername()[0]
-                        data = recv_exact(conn, MSG_SIZE)
+                        data = conn.recv(MSG_SIZE)
                         handle_client(client_ip, data)
                     except Exception:
                         poller.unregister(fd)
@@ -91,10 +81,6 @@ def send_to_client(client_ip:str, message: bytes):
     if not conn:
         return False
     try:
-        if len(message) > MSG_SIZE:
-            message = message[:MSG_SIZE]
-        else:
-            message = message.ljust(MSG_SIZE, b'\x00')
         conn.sendall(message)
         return True
     except Exception:
@@ -162,7 +148,7 @@ class PersistentClient:
     def _listen_loop(self):
         try:
             while self.running:
-                data = recv_exact(self.sock, MSG_SIZE)
+                data = self.sock.recv(MSG_SIZE)
                 if data and self.handle_message:
                     self.handle_message(data)
         except Exception:
@@ -172,11 +158,7 @@ class PersistentClient:
         if not self.running or not self.sock:
             return
         try:
-            if len(message) > MSG_SIZE:
-                message = message[:MSG_SIZE]
-            else:
-                message = message.ljust(MSG_SIZE, b'\x00')
-            self.sock.sendall(message)
+           self.sock.sendall(message)
         except Exception:
             self.running = False
 
@@ -184,7 +166,6 @@ class PersistentClient:
         self.running = False
         if self.sock:
             try:
-                #self.sock.shutdown(socket.SHUT_RDWR)
                 self.sock.close()
             except Exception:
                 pass   

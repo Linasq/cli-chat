@@ -105,10 +105,10 @@ def srv_get_messages(cursor: sqlite3.Cursor, username: str):
     return msg
 
 
-def srv_get_logins(cursor: sqlite3.Cursor):
+def srv_get_logins(cursor: sqlite3.Cursor, username: str):
     cursor.execute('''
-        select username, password from registered_users
-                   ''')
+        select username, password from registered_users where username like '?'
+                   ''', username)
     users = cursor.fetchall()
     return users
 
