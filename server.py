@@ -3,9 +3,9 @@ from typing import Any, Dict, Tuple
 import json
 from db import srv_open_db, srv_insert_messages , srv_get_logins # assuming these functions are in the db module
 import network_backend as net
+import crypto_functions as crypto
 
-
-active_clients = {} 
+active_clients = {} # username -> ip
 DB_NAME = "server.db"  # or another path, depending on your project structure
 curcor, db = srv_open_db(DB_NAME)
 
@@ -13,6 +13,12 @@ curcor, db = srv_open_db(DB_NAME)
 published_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"IK_sign_pub", "IK_dh_pub", "PK_pub", "SPK_sig"}
 ephemeral_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"EK_pub"}
 
+
+def update_active_clients():
+    ips = net.get_active_clients()
+    for name, ip in active_clients:
+        if ip not in ips:
+            active_clients.pop(name)
 
 def handle_client(ip: str, msg: bytes) -> None:
     """
@@ -35,7 +41,7 @@ def handle_client(ip: str, msg: bytes) -> None:
         elif msg_type == "login":
             login_handler(ip, data, curcor)
         elif msg_type == "msg":
-            handle_message(ip,data)
+            handle_message(data)
 
 
         else:
@@ -90,32 +96,32 @@ def handle_fetch_ephemeral(ip: str, data: Dict[str, Any]) -> None:
 
 
 
-def handle_message(ip, message: dict):
+def handle_message(message: dict):
+    update_active_clients()
     src_username = message.get("src")
     name = message.get("name")
     data = message.get("msg")
     dst_username = message.get("dst")
     try: 
         dst_ip = active_clients[dst_username]
-    except:
-        #TODO zrobić zapis do bazy
-        return
-    
-    msg_to_send = {
-            "type": "msg",
-            "src": src_username,
-            "name": name,
-            "msg": data
-            }
-    try:
+        msg_to_send = {
+                "type": "msg",
+                "src": src_username,
+                "name": name,
+                "msg": data
+                }
         net.send_to_client(dst_ip, json.dumps(msg_to_send).encode())
     except Exception as e:
-        error_response = {
-            "type": "error",
-            "msg": "Server error while sending message to client"
-        }
-        net.send_to_client(ip,json.dumps(error_response).encode())
-        return 
+         try:
+            cursor, db = srv_open_db(DB_NAME)
+            srv_insert_messages(cursor,"messages",src_username,dst_username,data)
+            db.commit()
+            db.close()
+            return
+         except:
+            print("Failed saving message in DB!")
+            return
+
 
 
 
@@ -142,7 +148,7 @@ def register_handler(ip: str, message: dict) -> None:
         cursor, db = srv_open_db(DB_NAME)
 
         # Insert the new user into the registered_users table
-        srv_insert_messages(cursor, 'registered_users', username, password)
+        srv_insert_messages(cursor, 'registered_users', username, crypto.hash_md5(password))
 
         # Commit changes and close the database connection
         db.commit()
@@ -173,7 +179,7 @@ def login_handler(ip:str, message: dict, cursor) -> None:
 
     if not username or not password:
         error_response = {
-            "type": "login_response",
+            "type": "login",
             "msg": "Missing 'username' or 'password'."
         }
         net.send_to_client(ip, json.dumps(error_response).encode())
@@ -182,20 +188,20 @@ def login_handler(ip:str, message: dict, cursor) -> None:
     try:
         # Get list of registered usernames
         # Fetch stored password hash for the user
-        username, password = srv_get_logins(cursor, username)[0]
-
-        if username not in existing_logins:
+        try:
+            db_username, db_password = srv_get_logins(cursor, username)[0]
+        except:
             error_response = {
-                "type": "login_response",
+                "type": "login",
                 "msg": "Username not found."
             }
             net.send_to_client(ip,json.dumps(error_response).encode())
             return
+  
 
-
-        if not stored_password or stored_password[0] != password:
+        if db_password != crypto.hash_md5(password.encode()):
             error_response = {
-                "type": "login_response",
+                "type": "login",
                 "msg": "Incorrect password."
             }
             net.send_to_client(ip,json.dumps(error_response).encode())
@@ -203,7 +209,7 @@ def login_handler(ip:str, message: dict, cursor) -> None:
 
         # Credentials correct — send success response
         success_response = {
-            "type": "login_response",
+            "type": "login",
             "msg": "OK"
         }
         active_clients[username] = ip
@@ -211,7 +217,7 @@ def login_handler(ip:str, message: dict, cursor) -> None:
 
     except Exception as e:
         error_response = {
-            "type": "login_response",
+            "type": "login",
             "msg": f"Internal server error: {str(e)}"
         }
         net.send_to_client(ip,json.dumps(error_response).encode())

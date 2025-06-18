@@ -10,6 +10,10 @@ MULTICAST_PORT = 50000
 active_clients = {}  # IP -> socket
 
 
+def get_active_clients():
+    return active_clients.keys()
+
+
 def start_multicast_responder(tcp_ip, tcp_port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
