@@ -1,3 +1,4 @@
+from os import write
 import network_backend as net
 import crypto_functions as crypto
 import db
@@ -334,7 +335,7 @@ class ChatClientApp(App):
             if self.active_user:
                 db.insert_chat(self.cursor, self.active_user, 'Ty', ' '.join(message), self.group)
                 dst = self.group if self.group else self.active_user
-                payload = {'type':'msg', 'src':self.username, 'name':self.active_user, 'dst':dst}
+                payload = {'type':'msg', 'src':self.username, 'name':self.active_user, 'dst':dst, 'msg':' '.join(message)}
                 self.client.send_message(json.dumps(payload).encode())
             else:
                 self.chat_display.append_message("App", 'You have not choosen user to write to')

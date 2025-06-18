@@ -13,15 +13,12 @@ published_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"IK_sign_pub", 
 ephemeral_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"EK_pub"}
 
 
-def handle_client(ip: str, data) -> None:
+def handle_client(ip: str, msg: bytes) -> None:
     """
     Handles a single client request.
     """
     try:
-        data_raw = sock.recv(4096)
-        if not data_raw:
-            return
-        data: Dict[str, Any] = json.loads(data_raw.decode())
+        data = json.loads(msg.decode())
         msg_type: str = data.get("type", "")
 
         if msg_type == "publish_keys":
@@ -34,6 +31,7 @@ def handle_client(ip: str, data) -> None:
             handle_fetch_ephemeral(sock, data)
         else:
             sock.sendall(json.dumps({"error": "Unknown request type"}).encode())
+            net.send_to_client(ip, msg)
 
     except Exception as e:
         error_msg = f"[ERROR] {str(e)}"

@@ -38,7 +38,7 @@ def start_multicast_responder(tcp_ip, tcp_port):
             continue
 
 
-def init_server(ip:str, port:str, handle_client: Callable[[str,bytes], None]):
+def init_server(ip:str, port:int, handle_client: Callable[[str,bytes], None]):
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind((ip, port))

@@ -53,8 +53,8 @@ def get_history(cursor: sqlite3.Cursor, name: str):
 
 def insert_chat(cursor: sqlite3.Cursor, table_name: str, name: str, text: str, users: list[str]):
     date_now = datetime.now()
-    text_base = b64encode(text.encode())
     date_str = datetime.strftime(date_now, '\[%H:%M, %d.%m]')
+    text_base = b64encode(text.encode())
     cursor.execute(f'''insert into {table_name}(timestamp, name, text, users) values(?, ?, ?, ?)''', (date_str, name, text_base, ','.join(users)))
 
 
@@ -63,6 +63,9 @@ def sanitize_input(msg:str) -> str:
     for i in bad_actors:
         msg=msg.replace(i, '')
     return msg
+
+
+# --- SERVER ----
 
 
 def srv_open_db(db_name: str):
@@ -104,7 +107,7 @@ def srv_get_messages(cursor: sqlite3.Cursor, username: str):
 
 def srv_get_logins(cursor: sqlite3.Cursor):
     cursor.execute('''
-        select username from registered_users
+        select username, password from registered_users
                    ''')
     users = cursor.fetchall()
     return users
