@@ -1,3 +1,4 @@
+from os import wait
 from typing import Any, Dict, Tuple
 import json
 from db import srv_open_db, srv_insert_messages , srv_get_logins # assuming these functions are in the db module
@@ -19,7 +20,7 @@ def handle_client(ip: str, msg: bytes) -> None:
     """
     try:
         data = json.loads(msg.decode())
-        msg_type: str = data.get("type", "")
+        msg_type= data.get("type")
 
         if msg_type == "publish_keys":
             handle_publish_keys(ip, data)
@@ -180,7 +181,8 @@ def login_handler(ip:str, message: dict, cursor) -> None:
 
     try:
         # Get list of registered usernames
-        existing_logins = [row[0] for row in srv_get_logins(cursor)]
+        # Fetch stored password hash for the user
+        username, password = srv_get_logins(cursor, username)[0]
 
         if username not in existing_logins:
             error_response = {
@@ -190,9 +192,6 @@ def login_handler(ip:str, message: dict, cursor) -> None:
             net.send_to_client(ip,json.dumps(error_response).encode())
             return
 
-        # Fetch stored password hash for the user
-        cursor.execute("SELECT password FROM registered_users WHERE username = ?", (username,))
-        stored_password = cursor.fetchone()
 
         if not stored_password or stored_password[0] != password:
             error_response = {
@@ -223,4 +222,9 @@ published_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"IK_sign_pub", 
 ephemeral_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"EK_pub"}
 
 
-sock = net.init_server('192.168.122.1', 12345, handle_client)
+net.init_server('192.168.122.1', 12345, handle_client)
+try:
+    while True:
+        pass
+except KeyboardInterrupt:
+    print("\nZamykanie serwera.")
