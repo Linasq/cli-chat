@@ -1,8 +1,8 @@
-from os import write
 import network_backend as net
 import crypto_functions as crypto
 import db
 import time
+from datetime import datetime
 import json
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
@@ -15,6 +15,11 @@ TODO
 - dodac wysylanie wiadomosci przez siec
 - dodac funkcje tworzaca grupy i zobaczyc czy dziala wysylanie do wielu na raz ludzi
 '''
+
+def get_time():
+    date_now = datetime.now()
+    date_str = datetime.strftime(date_now, '\[%H:%M, %d.%m]')
+    return date_str
 
 
 class ContactList(VerticalScroll):
@@ -152,10 +157,7 @@ class ChatClientApp(App):
         payload = {'type':'login', 'username':self.username, 'password':hash}
         self.client.send_message(json.dumps(payload).encode())
 
-        # TODO
-        # check if good login - server action
-        
-        if not self.client.event.wait(2):
+        if self.client.event.wait(2):
             self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
             return
 
@@ -218,11 +220,9 @@ class ChatClientApp(App):
 
         to_send = {'type':'register', 'login':username, 'password':password}
 
-        # TODO
-        # send to server
         self.client.send_message(json.dumps(to_send).encode())
 
-        if not self.client.event.wait(2):
+        if self.client.event.wait(2):
             self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
             return
 
@@ -261,7 +261,7 @@ class ChatClientApp(App):
             payload = {'type': 'is_registered', 'username':user}
             self.client.send_message(json.dumps(payload).encode())
 
-            if not self.client.event.wait(2):
+            if self.client.event.wait(2):
                 self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
                 return
 
@@ -273,7 +273,7 @@ class ChatClientApp(App):
 
         # if everyone is registered
         db.get_history(self.cursor, name) # just creating table
-        db.insert_chat(self.cursor, name, 'APP', f'Successfully created group "{name}"', group) # add msg
+        db.insert_chat(self.cursor, get_time(), name, 'APP', f'Successfully created group "{name}"', group) # add msg
         names = db.get_names(self.cursor) # update contact list
         self.contact_list.set_contact(names)
         return
@@ -290,9 +290,9 @@ class ChatClientApp(App):
             self.client.set_event()
         elif msg['type'] == 'msg':
             if msg['name']:
-                db.insert_chat(self.cursor, msg['src'], msg['src'], msg['msg'], [''])
+                db.insert_chat(self.cursor, get_time(), msg['src'], msg['src'], msg['msg'], [''])
             else:
-                db.insert_chat(self.cursor, msg['name'], msg['src'], msg['msg'], [''])
+                db.insert_chat(self.cursor, get_time(), msg['name'], msg['src'], msg['msg'], [''])
             if self.active_user == msg['username']:
                 self.chat_display.append_message(msg['src'], msg['msg'])
 
@@ -324,9 +324,9 @@ class ChatClientApp(App):
         elif message[0] and message[0][0] == '/':
             self.chat_display.remove_messages()
             self.chat_display.append_message("App", 'Try one of the following commands:')
-            self.chat_display.append_message("App", '/chat user - start a chat with user')
-            self.chat_display.append_message("App", '/login login password - login to an existing account')
             self.chat_display.append_message("App", '/register login password - create a new account')
+            self.chat_display.append_message("App", '/login login password - login to an existing account')
+            self.chat_display.append_message("App", '/chat user - start a chat with user')
             self.chat_display.append_message("App", '/group group_name user1,user2,... - create group group_name with users seperated with coma')
             self.chat_display.append_message("App", '/exit or :q or ctrl+q to quit')
             self.chat_display.append_message("App", 'or just start talking with your friend, when you have already opened chat')
@@ -336,7 +336,7 @@ class ChatClientApp(App):
             # TODO
             # send over network
             if self.active_user:
-                db.insert_chat(self.cursor, self.active_user, 'Ty', ' '.join(message), self.group)
+                db.insert_chat(self.cursor, get_time(), self.active_user, 'Ty', ' '.join(message), self.group)
                 if self.group:
                     dst = self.group
                     name = self.active_user
@@ -356,9 +356,10 @@ class ChatClientApp(App):
         # encrypt db, close connection with server, exit
         try:
             db.close_db(self.cursor, self.db)
+            self.client.close()
         except AttributeError:
             pass
-        time.sleep(2)
+        time.sleep(0.2)
         self.exit()
 
 

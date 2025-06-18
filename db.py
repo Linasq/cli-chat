@@ -36,10 +36,10 @@ def get_history(cursor: sqlite3.Cursor, name: str):
         id INTEGER PRIMARY KEY autoincrement,
         timestamp DATE,
         name TEXT,
-        text TEXT,
+        msg TEXT,
         users TEXT
     );''')
-    cursor.execute(f'select timestamp, name, text, users from {name}')
+    cursor.execute(f'select timestamp, name, msg, users from {name}')
     chat = cursor.fetchall()
     if not chat:
         return chat
@@ -51,11 +51,9 @@ def get_history(cursor: sqlite3.Cursor, name: str):
     return results
 
 
-def insert_chat(cursor: sqlite3.Cursor, table_name: str, name: str, text: str, users: list[str]):
-    date_now = datetime.now()
-    date_str = datetime.strftime(date_now, '\[%H:%M, %d.%m]')
+def insert_chat(cursor: sqlite3.Cursor, timestamp:str, table_name: str, name: str, text: str, users: list[str]):
     text_base = b64encode(text.encode())
-    cursor.execute(f'''insert into {table_name}(timestamp, name, text, users) values(?, ?, ?, ?)''', (date_str, name, text_base, ','.join(users)))
+    cursor.execute(f'''insert into {table_name}(timestamp, name, msg, users) values(?, ?, ?, ?)''', (timestamp, name, text_base, ','.join(users)))
 
 
 def sanitize_input(msg:str) -> str:
@@ -97,7 +95,7 @@ def srv_open_db(db_name: str):
 
 def srv_get_messages(cursor: sqlite3.Cursor, username: str):
     cursor.execute(f'''
-        select timestamp, src, dst, text from messages
+        select timestamp, src, dst, msg from messages
         where dst like '?'
            ''', username)
 
@@ -122,7 +120,7 @@ def srv_insert_messages(cursor: sqlite3.Cursor, table_name: str, *args):
 
     elif table_name == 'messages' and len(args) == 4:
         cursor.execute(f'''
-            insert into {table_name}(timestamp, src, dst, text)
+            insert into {table_name}(timestamp, src, dst, msg)
                     values(?, ?, ?, ?)''',
                        (args[0], args[1], args[2], args[3]))
 
