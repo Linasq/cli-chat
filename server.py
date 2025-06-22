@@ -6,7 +6,7 @@ import crypto_functions as crypto
 
 active_clients = {} # username -> ip
 DB_NAME = "server.db"  # or another path, depending on your project structure
-# cursor, db = srv_open_db(DB_NAME)
+cursor, db = srv_open_db(DB_NAME)
 
 
 published_keys: Dict[str, Dict[str, str]] = {}     # user_id -> {"IK_sign_pub", "IK_dh_pub", "PK_pub", "SPK_sig"}
@@ -18,6 +18,8 @@ def update_active_clients():
     for name, ip in active_clients.items():
         if ip not in ips:
             active_clients.pop(name)
+
+    print(str(active_clients))
 
 
 def handle_client(ip: str, msg: bytes) -> None:
@@ -101,6 +103,7 @@ def handle_message(message: dict):
     name = message.get("name")
     data = message.get("msg")
     dst_username = message.get("dst")
+    print(f'src: {src_username}, name: {name}, data: {data}, dst_username: {dst_username}')
     try: 
         dst_ip = active_clients[dst_username]
         msg_to_send = {
@@ -109,16 +112,18 @@ def handle_message(message: dict):
                 "name": name,
                 "msg": data
                 }
+        print(dst_ip)
         net.send_to_client(dst_ip, json.dumps(msg_to_send).encode())
     except Exception as e:
-         try:
+        print(e)
+        try:
             # cursor, db = srv_open_db(DB_NAME)
             # srv_insert_messages(db, cursor,"messages",src_username,dst_username,data)
             srv_insert_messages("messages",src_username,dst_username,data)
             # db.commit()
             # db.close()
             return
-         except:
+        except:
             print("Failed saving message in DB!")
             return
 

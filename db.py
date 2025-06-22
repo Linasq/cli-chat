@@ -40,7 +40,7 @@ def get_names(cursor: sqlite3.Cursor):
 def get_history(cursor: sqlite3.Cursor, name: str):
     cursor.execute(f'''create table if not exists {name}(
         id INTEGER PRIMARY KEY autoincrement,
-        timestamp DATE,
+        timestamp TEXT,
         name TEXT,
         msg TEXT,
         users TEXT
@@ -90,7 +90,7 @@ def srv_open_db(db_name: str):
     '''
     cursor.execute(f'''create table if not exists messages(
         id INTEGER PRIMARY KEY autoincrement,
-        timestamp DATE,
+        timestamp TEXT,
         src TEXT,
         dst TEXT,
         name TEXT,

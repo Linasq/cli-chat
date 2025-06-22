@@ -287,6 +287,7 @@ class ChatClientApp(App):
     # whether it is message from server or from other user
     def recv_msg(self, data: bytes):
         msg = json.loads(data)
+        print(str(msg))
 
         if msg['type'] == 'register' or msg['type'] == 'login' or msg['type'] == 'is_registered':
             self.error_msg = msg['msg']
