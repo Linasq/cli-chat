@@ -82,12 +82,14 @@ def init_server(ip:str, port:int, handle_client: Callable[[str,bytes], None]):
 
 def send_to_client(client_ip:str, message: bytes):
     conn = active_clients.get(client_ip)
+    print(conn)
+    print(message)
     if not conn:
         return False
     try:
         conn.sendall(message)
         return True
-    except Exception:
+    except:
         conn.close()
         active_clients.pop(client_ip, None)
         return False
