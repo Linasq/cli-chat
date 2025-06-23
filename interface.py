@@ -68,12 +68,9 @@ class ChatDisplay(VerticalScroll):
 
 
     def append_message(self, sender: str, content: str, date=None):
-        if not date:
-            self.messages.append(f"{sender}: {content}")
-            self.update_messages()
-        else:
-            self.messages.append(f"[{date}] {sender}: {content}")
-            self.update_messages()
+        prefix = f'[{date}]' if date else ''
+        self.messages.append(f"{prefix} {sender}: {content}")
+        self.update_messages()
 
 
     def update_messages(self):
@@ -129,6 +126,7 @@ class ChatClientApp(App):
         self.group = []
         self.username = ''
         self.error_msg = ''
+        self.db_name = ''
 
 
     def compose(self) -> ComposeResult:
@@ -170,8 +168,8 @@ class ChatClientApp(App):
         # TODO
         # get key to decrypt db
         db.decrypt_db(f'db/{self.username}.db', b'123') # for test purposes
-        self.cursor, self.db = db.open_db(f'db/{self.username}.db')
-        names = db.get_names(self.cursor)
+        self.db_name = f'db/{self.username}.db'
+        names = db.get_names(self.db_name)
         self.contact_list.set_login()
         self.contact_list.set_contact(names)
         self.logged_in = 1
@@ -198,13 +196,13 @@ class ChatClientApp(App):
         elif message[1]:
             user = db.sanitize_input(message[1])
             self.active_user = user
-            chat_history = db.get_history(self.cursor, self.active_user)
+            chat_history = db.get_history(self.db_name, self.active_user)
             self.chat_display.remove_messages()
             if chat_history:
                 self.group = chat_history[0][3].split(',')
                 for msg in chat_history:
                     self.chat_display.append_message(f'{msg[0]} {msg[1]}', f'{msg[2]}')
-            names = db.get_names(self.cursor)
+            names = db.get_names(self.db_name)
             self.contact_list.set_contact(names)
         else:
             self.chat_display.remove_messages()
@@ -275,9 +273,9 @@ class ChatClientApp(App):
             self.client.set_event()
 
         # if everyone is registered
-        db.get_history(self.cursor, name) # just creating table
-        db.insert_chat(self.cursor, get_time(), name, 'APP', f'Successfully created group "{name}"', group) # add msg
-        names = db.get_names(self.cursor) # update contact list
+        db.get_history(self.db_name, name) # just creating table
+        db.insert_chat(self.db_name, get_time(), name, 'APP', f'Successfully created group "{name}"', group) # add msg
+        names = db.get_names(self.db_name) # update contact list
         self.contact_list.set_contact(names)
         return
 
@@ -297,7 +295,7 @@ class ChatClientApp(App):
                 tmp = msg['src']
             else:
                 tmp = msg['name']
-            db.insert_chat(self.cursor, get_time(), tmp, msg['src'], msg['msg'], [''])
+            db.insert_chat(self.db_name, get_time(), tmp, msg['src'], msg['msg'], [''])
             if self.active_user == tmp:
                 to_print = msg['msg'].strip()
                 self.chat_display.append_message(tmp, to_print)
@@ -342,7 +340,7 @@ class ChatClientApp(App):
             # TODO
             # send over network
             if self.active_user:
-                db.insert_chat(self.cursor, get_time(), self.active_user, 'Ty', ' '.join(message), self.group)
+                db.insert_chat(self.db_name, get_time(), self.active_user, 'Ty', ' '.join(message), self.group)
                 if self.group != [""]:
                     dst = self.group
                     name = self.active_user
@@ -361,7 +359,6 @@ class ChatClientApp(App):
         # TODO
         # encrypt db, close connection with server, exit
         try:
-            db.close_db(self.cursor, self.db)
             self.client.close()
         except AttributeError:
             pass
