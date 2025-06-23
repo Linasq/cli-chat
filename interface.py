@@ -158,7 +158,7 @@ class ChatClientApp(App):
         payload = {'type':'login', 'username':self.username, 'password':hash}
         self.client.send_message(json.dumps(payload).encode())
 
-        if self.client.event.wait(2):
+        if self.client.event.wait(1):
             self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
             return
 
@@ -225,7 +225,7 @@ class ChatClientApp(App):
 
         self.client.send_message(json.dumps(to_send).encode())
 
-        if self.client.event.wait(2):
+        if self.client.event.wait(1):
             self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
             return
 
@@ -293,12 +293,14 @@ class ChatClientApp(App):
             self.error_msg = msg['msg']
             self.client.set_event()
         elif msg['type'] == 'msg':
-            if msg['name']:
-                db.insert_chat(self.cursor, get_time(), msg['src'], msg['src'], msg['msg'], [''])
+            if not msg['name']:
+                tmp = msg['src']
             else:
-                db.insert_chat(self.cursor, get_time(), msg['name'], msg['src'], msg['msg'], [''])
-            if self.active_user == msg['username']:
-                self.chat_display.append_message(msg['src'], msg['msg'])
+                tmp = msg['name']
+            db.insert_chat(self.cursor, get_time(), tmp, msg['src'], msg['msg'], [''])
+            if self.active_user == tmp:
+                to_print = msg['msg'].strip()
+                self.chat_display.append_message(tmp, to_print)
 
 
     def set_client(self, client: net.PersistentClient):
