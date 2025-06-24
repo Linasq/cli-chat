@@ -197,7 +197,7 @@ class ChatClientApp(App):
 
         if len(message) > 2:
             self.chat_display.remove_messages()
-            self.chat_display.append_message('App', 'ERROR: try command "/chat user"')
+            self.chat_display.append_message('App', 'ERROR: try command "/chat user" or "/chat group_name"')
         elif message[1]:
             user = db.sanitize_input(message[1])
             self.active_user = user
@@ -267,7 +267,7 @@ class ChatClientApp(App):
             payload = {'type': 'is_registered', 'username':user}
             self.client.send_message(json.dumps(payload).encode())
 
-            if self.client.event.wait(2):
+            if self.client.event.wait(1):
                 self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
                 return
 
@@ -291,7 +291,7 @@ class ChatClientApp(App):
     def recv_msg(self, data: bytes):
         msg = json.loads(data)
 
-        if msg['type'] == 'register' or msg['type'] == 'login' or msg['type'] == 'is_registered':
+        if msg['type'] in ['login', 'register', 'is_registered']:
             self.error_msg = msg['msg']
             self.client.set_event()
         elif msg['type'] == 'msg':
@@ -344,7 +344,7 @@ class ChatClientApp(App):
             # send over network
             if self.active_user:
                 db.insert_chat(self.db_name, get_time(), self.active_user, 'Ty', ' '.join(message), self.group)
-                if self.group != [""]:
+                if self.group != [""] and self.group:
                     dst = self.group
                     name = self.active_user
                 else:
