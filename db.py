@@ -29,6 +29,7 @@ def close_db(cursor: sqlite3.Cursor, db: sqlite3.Connection):
     db.commit()
     cursor.close()
     db.close()
+    return
 
 
 def get_names(db_name: str):
@@ -66,6 +67,7 @@ def insert_chat(db_name: str, timestamp:str, table_name: str, name: str, text: s
     text_base = b64encode(text.encode())
     cursor.execute(f'''insert into {table_name}(timestamp, name, msg, users) values(?, ?, ?, ?)''', (timestamp, name, text_base, ','.join(users)))
     close_db(cursor, db)
+    return
 
 
 def sanitize_input(msg:str) -> str:
