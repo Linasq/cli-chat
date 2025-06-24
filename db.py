@@ -29,15 +29,19 @@ def close_db(cursor: sqlite3.Cursor, db: sqlite3.Connection):
     db.commit()
     cursor.close()
     db.close()
+    return
 
 
-def get_names(cursor: sqlite3.Cursor):
+def get_names(db_name: str):
+    cursor, db = open_db(db_name)
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
     names = cursor.fetchall()
+    close_db(cursor, db)
     return names
 
 
-def get_history(cursor: sqlite3.Cursor, name: str):
+def get_history(db_name: str, name: str):
+    cursor, db = open_db(db_name)
     cursor.execute(f'''create table if not exists {name}(
         id INTEGER PRIMARY KEY autoincrement,
         timestamp TEXT,
@@ -47,6 +51,7 @@ def get_history(cursor: sqlite3.Cursor, name: str):
     );''')
     cursor.execute(f'select timestamp, name, msg, users from {name}')
     chat = cursor.fetchall()
+    close_db(cursor, db)
     if not chat:
         return chat
 
@@ -57,9 +62,12 @@ def get_history(cursor: sqlite3.Cursor, name: str):
     return results
 
 
-def insert_chat(cursor: sqlite3.Cursor, timestamp:str, table_name: str, name: str, text: str, users: list[str]):
+def insert_chat(db_name: str, timestamp:str, table_name: str, name: str, text: str, users: list[str]):
+    cursor, db = open_db(db_name)
     text_base = b64encode(text.encode())
     cursor.execute(f'''insert into {table_name}(timestamp, name, msg, users) values(?, ?, ?, ?)''', (timestamp, name, text_base, ','.join(users)))
+    close_db(cursor, db)
+    return
 
 
 def sanitize_input(msg:str) -> str:

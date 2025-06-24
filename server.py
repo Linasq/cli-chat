@@ -19,7 +19,7 @@ def update_active_clients():
         if ip not in ips:
             active_clients.pop(name)
 
-    print(str(active_clients))
+    print('update active clients', str(active_clients))
 
 
 def handle_client(ip: str, msg: bytes) -> None:
@@ -45,11 +45,6 @@ def handle_client(ip: str, msg: bytes) -> None:
             login_handler(ip, data)#, cursor)
         elif msg_type == "msg":
             handle_message(data)
-
-
-        else:
-            net.send_to_client(ip,json.dumps({"error": "Unknown request type"}).encode())
-            net.send_to_client(ip, msg)
 
     except Exception as e:
         error_msg = f"[ERROR] {str(e)}"

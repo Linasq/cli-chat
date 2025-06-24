@@ -131,7 +131,7 @@ class PersistentClient:
 
 
     def set_event(self):
-        if self.event.is_set:
+        if self.event.is_set():
             self.event.clear()
         else:
             self.event.set()
