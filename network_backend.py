@@ -14,7 +14,7 @@ def get_active_clients():
     return active_clients.keys()
 
 
-def start_multicast_responder(udp_ip, udp_port):
+def start_multicast_responder(tcp_ip, tcp_port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind(('', MULTICAST_PORT))
@@ -26,7 +26,7 @@ def start_multicast_responder(udp_ip, udp_port):
         try:
             data, addr = sock.recvfrom(1024)
             if data == b"DISCOVER_SERVER":
-                response = f"{udp_ip}:{udp_port}"
+                response = f"{tcp_ip}:{tcp_port}"
                 sock.sendto(response.encode('utf-8'), addr)
         except Exception:
             continue
@@ -131,7 +131,7 @@ class PersistentClient:
 
 
     def set_event(self):
-        if self.event.is_set():
+        if self.event.is_set:
             self.event.clear()
         else:
             self.event.set()
@@ -174,4 +174,4 @@ class PersistentClient:
             try:
                 self.sock.close()
             except Exception:
-                pass   
+                pass  
