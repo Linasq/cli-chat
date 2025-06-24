@@ -295,7 +295,9 @@ class ChatClientApp(App):
             self.error_msg = msg['msg']
             self.client.set_event()
         elif msg['type'] == 'msg':
-            if not msg['name']:
+            if msg['src'] and msg['name']:
+                tmp = msg['src']
+            elif not msg['name']:
                 tmp = msg['src']
             else:
                 tmp = msg['name']
