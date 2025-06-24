@@ -64,19 +64,22 @@ class ChatDisplay(VerticalScroll):
         how_many = len(self.messages)
         for _ in range (how_many):
             self.messages.pop()
-        self.update_messages()
+        self.update_messages(False)
 
 
-    def append_message(self, sender: str, content: str, date=None):
+    def append_message(self, sender: str, content: str, date=None, recv=False):
         prefix = f'[{date}]' if date else ''
         self.messages.append(f"{prefix} {sender}: {content}")
-        self.update_messages()
+        self.update_messages(recv)
 
 
-    def update_messages(self):
+    def update_messages(self, recv: bool):
         self.remove_children()
         for msg in self.messages:
-            self.mount(Static(msg, classes="message"))
+            if recv:
+                self.call_later(self.mount, Static(msg, classes="message"))
+            else:
+                self.mount(Static(msg, classes="message"))
 
 
 class ChatClientApp(App):
@@ -298,7 +301,7 @@ class ChatClientApp(App):
             db.insert_chat(self.db_name, get_time(), tmp, msg['src'], msg['msg'], [''])
             if self.active_user == tmp:
                 to_print = msg['msg'].strip()
-                self.chat_display.append_message(tmp, to_print)
+                self.chat_display.append_message(tmp, to_print, recv=True)
 
 
     def set_client(self, client: net.PersistentClient):
