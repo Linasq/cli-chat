@@ -71,6 +71,7 @@ class ChatDisplay(VerticalScroll):
         prefix = f'[{date}]' if date else ''
         self.messages.append(f"{prefix} {sender}: {content}")
         self.update_messages(recv)
+        return
 
 
     def update_messages(self, recv: bool):
@@ -80,6 +81,7 @@ class ChatDisplay(VerticalScroll):
                 self.call_later(self.mount, Static(msg, classes="message"))
             else:
                 self.mount(Static(msg, classes="message"))
+        return
 
 
 class ChatClientApp(App):
@@ -288,7 +290,6 @@ class ChatClientApp(App):
     # whether it is message from server or from other user
     def recv_msg(self, data: bytes):
         msg = json.loads(data)
-        print(str(msg))
 
         if msg['type'] == 'register' or msg['type'] == 'login' or msg['type'] == 'is_registered':
             self.error_msg = msg['msg']
@@ -300,8 +301,7 @@ class ChatClientApp(App):
                 tmp = msg['name']
             db.insert_chat(self.db_name, get_time(), tmp, msg['src'], msg['msg'], [''])
             if self.active_user == tmp:
-                to_print = msg['msg'].strip()
-                self.chat_display.append_message(tmp, to_print, recv=True)
+                self.chat_display.append_message(tmp, msg['msg'], None, True)
 
 
     def set_client(self, client: net.PersistentClient):
