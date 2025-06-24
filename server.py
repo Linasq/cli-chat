@@ -99,16 +99,27 @@ def handle_message(message: dict):
     data = message.get("msg")
     dst_username = message.get("dst")
     print(f'src: {src_username}, name: {name}, data: {data}, dst_username: {dst_username}')
-    try: 
-        dst_ip = active_clients[dst_username]
-        msg_to_send = {
-                "type": "msg",
-                "src": src_username,
-                "name": name,
-                "msg": data
-                }
-        print(dst_ip)
-        net.send_to_client(dst_ip, json.dumps(msg_to_send).encode())
+    try:
+        if name == "":
+            dst_ip = active_clients[dst_username]
+            msg_to_send = {
+                    "type": "msg",
+                    "src": src_username,
+                    "name": name,
+                    "msg": data
+                    }
+            print(dst_ip)
+            net.send_to_client(dst_ip, json.dumps(msg_to_send).encode())
+        else:
+            for nick in dst_username:
+                dst_ip = active_clients[nick]
+                msg_to_send = {
+                    "type": "msg",
+                    "src": src_username,
+                    "name": name,
+                    "msg": data
+                    }
+                net.send_to_client(dst_ip, json.dumps(msg_to_send).encode())
     except Exception as e:
         print(e)
         try:
