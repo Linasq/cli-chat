@@ -69,7 +69,11 @@ def handle_publish_keys(ip: str,data: Dict[str, Any]) -> None:
 def handle_fetch_keys(ip: str, data: Dict[str, Any]) -> None:
     user_id: str = data["user_id"]
     if user_id in published_keys:
-        net.send_to_client(ip, json.dumps(published_keys[user_id]).encode())
+        keys_to_send = {
+            "type": "user_keys",
+            "msg": published_keys[user_id]
+        }
+        net.send_to_client(ip, json.dumps(keys_to_send).encode())
         print(f"[INFO] Sent keys for user {user_id}")
     else:
         net.send_to_client(ip, json.dumps({"error": "No keys found for user"}).encode())
@@ -88,10 +92,19 @@ def handle_publish_ephemeral(ip: str, data: Dict[str, Any]) -> None:
 def handle_fetch_ephemeral(ip: str, data: Dict[str, Any]) -> None:
     user_id: str = data["user_id"]
     if user_id in ephemeral_keys:
-        net.send_to_client(ip, json.dumps(ephemeral_keys[user_id]).encode())
+        ephemeral_key_to_send= {
+                "type": "EK_key",
+                "msg": ephemeral_keys[user_id]
+                }
+        net.send_to_client(ip, json.dumps(ephemeral_key_to_send).encode())
         print(f"[INFO] Sent ephemeral key for user {user_id}")
+        del ephemeral_keys[user_id]
     else:
-        net.send_to_client(ip, json.dumps({"error": "No ephemeral key found for user"}).encode())
+        error_response = {
+                "type": "no_EK",
+                "msg": "No ephemeral key found for user"
+                }
+        net.send_to_client(ip, json.dumps(error_response).encode())
  
 
 def handle_message(message: dict):
