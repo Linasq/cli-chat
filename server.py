@@ -1,3 +1,4 @@
+from logging import exception
 from typing import Any, Dict, Tuple
 import json
 from db import srv_open_db, srv_insert_messages , srv_get_logins # assuming these functions are in the db module
@@ -83,22 +84,34 @@ def handle_fetch_keys(ip: str, data: Dict[str, Any]) -> None:
 def handle_publish_ephemeral(ip: str, data: Dict[str, Any]) -> None:
     user_id: str = data["user_id"]
     ephemeral_keys[user_id] = {
+        "responder_id": data["responder_id"],
         "EK_pub": data["EK_pub"]
-    }
+        }
     print(f"[INFO] Stored ephemeral key for user {user_id}")
     net.send_to_client(ip, json.dumps({"status": "ok"}).encode())
 
 
 def handle_fetch_ephemeral(ip: str, data: Dict[str, Any]) -> None:
     user_id: str = data["user_id"]
+    caller_id: str = data["initiatior_id"]
     if user_id in ephemeral_keys:
-        ephemeral_key_to_send= {
-                "type": "EK_key",
-                "msg": ephemeral_keys[user_id]
-                }
-        net.send_to_client(ip, json.dumps(ephemeral_key_to_send).encode())
-        print(f"[INFO] Sent ephemeral key for user {user_id}")
-        del ephemeral_keys[user_id]
+        x= ephemeral_keys[user_id]
+        if caller_id == x["responder_id"]: 
+            ephemeral_key_to_send= {
+                    "type": "EK_key",
+                    "msg": ephemeral_keys[user_id]
+                    }
+            net.send_to_client(ip, json.dumps(ephemeral_key_to_send).encode())
+            print(f"[INFO] Sent ephemeral key for user {user_id}")
+            del ephemeral_keys[user_id]
+            
+        else:
+            error_response = {
+                    "type": "no_EK",
+                    "msg": "No ephemeral key found for user"
+                    }
+            net.send_to_client(ip, json.dumps(error_response).encode())
+     
     else:
         error_response = {
                 "type": "no_EK",
