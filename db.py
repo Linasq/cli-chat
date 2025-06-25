@@ -1,22 +1,22 @@
 from base64 import b64decode, b64encode
 import sqlite3
-from cryptography.hazmat.primitives.ciphers.algorithms import AES256
+import crypto_functions as cr
 from os import mkdir
 
 def encrypt_db(db_name: str, key: bytes):
     '''
     Encrypts Database under given directory
     '''
-    # cipher = aes.new(key, aes.MODE_ECB)
-    # print(cipher)
-    pass
+    sha3 = cr.hash_sha3(key)
+    cr.encrypt_db(sha3, db_name)
 
 
 def decrypt_db(db_name: str, key: bytes):
     '''
     Decrypts Database under given directory
     '''
-    pass
+    sha3 = cr.hash_sha3(key)
+    cr.decrypt_db(sha3, db_name)
 
 
 def open_db(db_name: str):

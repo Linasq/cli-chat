@@ -1,10 +1,8 @@
-import json
 from typing import Any, Dict, Tuple
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
@@ -26,6 +24,13 @@ def hash_md5(data: bytes) -> str:
     digest = hashes.Hash(hashes.MD5())
     digest.update(data)
     return digest.finalize().hex()
+
+
+def hash_sha3(data: bytes):
+    digest = hashes.Hash(hashes.SHA3_256())
+    digest.update(data)
+    return digest.finalize()
+
 
 def x25519_pubkey_to_bytes(pubkey: X25519PublicKey) -> bytes:
     return pubkey.public_bytes(
@@ -155,19 +160,19 @@ def establish_session_key_responder(my_keys: Dict[str, Any], sender_keys: Dict[s
     return SK, md5_hash
 
 
-def encrypt_message(key: bytes, msg: bytes) -> bytes:
+def encrypt_db(key: bytes, db_name: str):
     """
-    Encrypts a message using AES-256 in ECB mode with PKCS7 padding.
+    Encrypts a db using AES-256 in ECB mode with PKCS7 padding.
 
     Args:
-        key (bytes): 32-byte AES key (256 bits).
-        msg (bytes): Plaintext message to encrypt.
-
-    Returns:
-        bytes: Ciphertext.
+        key (bytes): 32-byte key (256 bits).
+        db_name (str): path to db
     """
     if len(key) != 32:
         raise ValueError("Key must be 32 bytes long (256 bits)")
+
+    with open(db_name, 'rb') as f:
+        msg = f.read()
 
     # Padding (PKCS7)
     padder = padding.PKCS7(128).padder()
@@ -178,21 +183,26 @@ def encrypt_message(key: bytes, msg: bytes) -> bytes:
     encryptor = cipher.encryptor()
     ciphertext = encryptor.update(padded_data) + encryptor.finalize()
 
-    return ciphertext
+    with open(db_name, 'wb') as f:
+        f.write(ciphertext)
 
-def decrypt_message(key: bytes, ciphertext: bytes) -> bytes:
+
+def decrypt_db(key: bytes, db_name: str):
     """
-    Dcrypts a message encrypted using AES-256 in ECB mode with PKCS7 padding.
+    Dcrypts a db encrypted using AES-256 in ECB mode with PKCS7 padding.
 
     Args:
         key (bytes): 32-byte AES key (256 bits).
-        ciphertext (bytes): Ciphertext to decrypt.
+        db_name: str path to db
 
     Returns:
         bytes: Decrypted plaintext message.
     """
     if len(key) != 32:
         raise ValueError("Key must be 32 bytes long (256 bits)")
+
+    with open(db_name, 'rb') as f:
+        ciphertext = f.read()
 
     # Cipher AES-256 in ECB mode
     cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
@@ -203,7 +213,8 @@ def decrypt_message(key: bytes, ciphertext: bytes) -> bytes:
     unpadder = padding.PKCS7(128).unpadder()
     msg = unpadder.update(padded_data) + unpadder.finalize()
 
-    return msg
+    with open(db_name, 'wb') as f:
+        f.write(msg)
 
 # --- data to send/recive format ---
     # basic keys to send

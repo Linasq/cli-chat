@@ -175,6 +175,12 @@ class ChatClientApp(App):
         self.username = db.sanitize_input(msg[1])
         hash = crypto.hash_md5(msg[2].encode())
 
+        a,_ = crypto.generate_keys_to_send(self.username)
+        key = bytes.fromhex(a['IK_dh_pub'])
+
+        with open('key', 'wb') as f:
+            f.write(key)
+
         payload = {'type':'login', 'username':self.username, 'password':hash}
         self.client.send_message(json.dumps(payload).encode())
 
@@ -189,7 +195,7 @@ class ChatClientApp(App):
         # db operations
         # TODO
         # get key to decrypt db
-        db.decrypt_db(f'db/{self.username}.db', b'123') # for test purposes
+        db.decrypt_db(f'db/{self.username}.db', key) # for test purposes
         self.db_name = f'db/{self.username}.db'
         names = db.get_names(self.db_name)
         self.contact_list.set_login()
@@ -225,38 +231,6 @@ class ChatClientApp(App):
         elif message[1]:
             user = db.sanitize_input(message[1])
             self.active_user = user
-            # tu sie wjebac z liczeniem kluczy TODO sprawdzenie czy jest dla nas ephemeral na serwerze
-            payload = {
-                    "type": "fetch_ephemeral",
-                    "user_id": self.active_user
-                    "initiator_id": self.username
-                    }
-            self.client.send_message(json.dumps(payload).encode())
-
-
-            if self.client.event.wait(1):
-                self.chat_display.append_message('App', 'ERROR: request for EK sent to server but no response received')
-            
-            elif self.EK_msg == "No ephemeral key found for user":
-                payload = {
-                        "type": "fetch_keys",
-                        "user_id": self.active_user
-                        }
-                self.client.send_message(json.dumps(payload).encode())
-
-                self.SK, self.md5_hash, ephemerals_to_send = crypto.establish_session_key_initiator(self.username, self.my_keys, self.active_user_keys)
-                self.client.send_message(json.dumps(ephemerals_to_send).encode())
-
-            else:
-                payload = {
-                    "type": "fetch_keys",
-                    "user_id": self.active_user
-                    }
-                self.client.send_message(json.dumps(payload).encode())
-
-                self.SK, self.md5_hash = crypto.establish_session_key_responder(self.my_keys, self.active_user_keys, self.EK_key)
-
-
             chat_history = db.get_history(self.db_name, self.active_user)
             self.chat_display.remove_messages()
             if chat_history:
@@ -298,9 +272,6 @@ class ChatClientApp(App):
         if self.error_msg != 'OK':
             self.chat_display.append_message('App', self.error_msg)
             return
-        # generatin and sending my_keys TODO errors
-        payload, self.my_keys = crypto.generate_keys_to_send(username)
-        self.client.send_message(json.dumps(payload).encode())
 
         # if there was nothing wrong
         self.chat_display.append_message('App', f'SUCCESS: Now you can log in to your account. Your username is: {username}')
@@ -453,7 +424,10 @@ class ChatClientApp(App):
         # TODO
         # encrypt db, close connection with server, exit
         try:
+            with open('key', 'rb') as f:
+                key = f.read()
             self.client.close()
+            db.encrypt_db(f'db/{self.username}.db', key) # for test purposes
         except AttributeError:
             pass
         time.sleep(0.2)
