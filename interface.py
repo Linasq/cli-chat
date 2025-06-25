@@ -340,17 +340,17 @@ class ChatClientApp(App):
             self.EK_key = msg['msg']
         elif msg[type] in ['user_keys']:
             self.active_user_keys = msg['msg']
-        # TODO fix logic and create table if someone sends msg
         elif msg['type'] == 'msg':
-            if msg['src'] and msg['name']:
-                tmp = msg['src']
-            elif not msg['name']:
-                tmp = msg['src']
+            if not msg['name']:
+                name = msg['src']
+                db.get_history(self.db_name, name) # create table if not exists
+                names = db.get_names(self.db_name)
+                self.contact_list.set_contact(names)
             else:
-                tmp = msg['name']
-            db.insert_chat(self.db_name, get_time(), tmp, msg['src'], msg['msg'], [''])
-            if self.active_user == tmp:
-                self.chat_display.append_message(tmp, msg['msg'], None, True)
+                name = msg['name']
+            db.insert_chat(self.db_name, get_time(), name, msg['src'], msg['msg'], [''])
+            if self.active_user == name:
+                self.chat_display.append_message(msg['src'], msg['msg'], None, True)
 
 
     def set_client(self, client: net.PersistentClient):
