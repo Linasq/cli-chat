@@ -231,6 +231,37 @@ class ChatClientApp(App):
         elif message[1]:
             user = db.sanitize_input(message[1])
             self.active_user = user
+            '''
+            payload = {
+                    "type": "fetch_ephemeral",
+                    "user_id": self.active_user
+                    "initiator_id": self.username
+                    }
+            self.client.send_message(json.dumps(payload).encode())
+
+
+            if self.client.event.wait(1):
+                self.chat_display.append_message('App', 'ERROR: request for EK sent to server but no response received')
+
+            elif self.EK_msg == "No ephemeral key found for user":
+                payload = {
+                        "type": "fetch_keys",
+                        "user_id": self.active_user
+                        }
+                self.client.send_message(json.dumps(payload).encode())
+
+                self.SK, self.md5_hash, ephemerals_to_send = crypto.establish_session_key_initiator(self.username, self.my_keys, self.active_user_keys)
+                self.client.send_message(json.dumps(ephemerals_to_send).encode())
+
+            else:
+                payload = {
+                    "type": "fetch_keys",
+                    "user_id": self.active_user
+                    }
+                self.client.send_message(json.dumps(payload).encode())
+
+                self.SK, self.md5_hash = crypto.establish_session_key_responder(self.my_keys, self.active_user_keys, self.EK_key)
+            '''
             chat_history = db.get_history(self.db_name, self.active_user)
             self.chat_display.remove_messages()
             if chat_history:
@@ -264,7 +295,7 @@ class ChatClientApp(App):
         to_send = {'type':'register', 'login':username, 'password':password}
 
         self.client.send_message(json.dumps(to_send).encode())
-
+        
         if self.client.event.wait(1):
             self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
             return
@@ -272,7 +303,10 @@ class ChatClientApp(App):
         if self.error_msg != 'OK':
             self.chat_display.append_message('App', self.error_msg)
             return
-
+        '''
+        payload, self.my_keys = crypto.generate_keys_to_send(username)
+        self.client.send_message(json.dumps(payload).encode())
+        '''
         # if there was nothing wrong
         self.chat_display.append_message('App', f'SUCCESS: Now you can log in to your account. Your username is: {username}')
         self.client.set_event()
