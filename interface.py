@@ -362,11 +362,11 @@ class ChatClientApp(App):
         if msg['type'] in ['login', 'register', 'is_registered']:
             self.error_msg = msg['msg']
             self.client.set_event()
-        elif msg[type] in ['no_EK']:
+        elif msg['type'] in ['no_EK']:
             self.EK_msg = msg['msg']
-        elif msg[type] in ['EK_key']:
+        elif msg['type'] in ['EK_key']:
             self.EK_key = msg['msg']
-        elif msg[type] in ['user_keys']:
+        elif msg['type'] in ['user_keys']:
             self.active_user_keys = msg['msg']
         elif msg['type'] == 'msg':
             if not msg['name']:
