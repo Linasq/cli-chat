@@ -45,6 +45,8 @@ def handle_client(ip: str, msg: bytes) -> None:
             login_handler(ip, data)#, cursor)
         elif msg_type == "msg":
             handle_message(data)
+        elif msg_type == "is_registered":
+            handle_ask_for_register(ip, data)
 
     except Exception as e:
         error_msg = f"[ERROR] {str(e)}"
@@ -112,6 +114,8 @@ def handle_message(message: dict):
             net.send_to_client(dst_ip, json.dumps(msg_to_send).encode())
         else:
             for nick in dst_username:
+                if src_username == nick:
+                    continue
                 dst_ip = active_clients[nick]
                 msg_to_send = {
                     "type": "msg",
@@ -142,7 +146,6 @@ def register_handler(ip: str, message: dict) -> None:
     """
     username = message.get("login")
     password = message.get("password")
-
     if not username or not password:
         error_response = {
             "type": "error",
@@ -151,6 +154,17 @@ def register_handler(ip: str, message: dict) -> None:
         net.send_to_client(ip,json.dumps(error_response).encode())
         return
 
+    try:
+        db_username, db_password = srv_get_logins(username)[0]
+        if db_username == username:
+            error_response = {
+                "type": "register",
+                "msg": "User is registered."
+            }
+            net.send_to_client(ip,json.dumps(error_response).encode())
+            return
+    except Exception as e:
+        print(e)
     try:
         # Open connection to the database and create tables if they don't exist
         # cursor, db = srv_open_db(DB_NAME)
@@ -231,6 +245,28 @@ def login_handler(ip:str, message: dict, cursor=None) -> None:
             "msg": f"Internal server error: {str(e)}"
         }
         net.send_to_client(ip,json.dumps(error_response).encode())
+
+
+
+def handle_ask_for_register(ip: str, message: dict):
+    username = message.get("username")
+    try:
+        user, password = srv_get_logins(username)[0]
+        success_response = {
+            "type": "is_registered",
+            "msg": "OK"
+        }
+
+        net.send_to_client(ip,json.dumps(success_response).encode())
+    except Exception as e:
+        error_response = {
+            "type": "is_registered",
+            "msg": f"User is not registered"
+        }
+        net.send_to_client(ip,json.dumps(error_response).encode())
+
+
+
 
 
 # Stores keys published by clients

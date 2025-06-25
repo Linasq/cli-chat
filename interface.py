@@ -136,6 +136,7 @@ class ChatClientApp(App):
         self.username = ''
         self.error_msg = ''
         self.db_name = ''
+        self.my_keys = {}
 
 
     def compose(self) -> ComposeResult:
@@ -198,7 +199,7 @@ class ChatClientApp(App):
         self.chat_display.append_message('App', '/chat username')
         return
 
-
+    # TODO check if user we want to connect with is registerd
     # create / open chat
     def chat(self, message: list[str]):
         '''
@@ -219,6 +220,7 @@ class ChatClientApp(App):
         elif message[1]:
             user = db.sanitize_input(message[1])
             self.active_user = user
+            # tu sie wjebac z liczeniem kluczy TODO sprawdzenie czy jest dla nas ephemeral na serwerze
             chat_history = db.get_history(self.db_name, self.active_user)
             self.chat_display.remove_messages()
             if chat_history:
@@ -252,6 +254,10 @@ class ChatClientApp(App):
         to_send = {'type':'register', 'login':username, 'password':password}
 
         self.client.send_message(json.dumps(to_send).encode())
+
+        payload, my_keys = crypto.generate_keys_to_send(username)
+        
+        self.client.send_message(json.dumps(payload).encode())
 
         if self.client.event.wait(1):
             self.chat_display.append_message('App', 'ERROR: sent message to server but no response received')
