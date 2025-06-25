@@ -175,11 +175,12 @@ class ChatClientApp(App):
         self.username = db.sanitize_input(msg[1])
         hash = crypto.hash_md5(msg[2].encode())
 
-        a,_ = crypto.generate_keys_to_send(self.username)
+        '''
+        a,_= crypto.generate_keys_to_send(self.username)
         key = bytes.fromhex(a['IK_dh_pub'])
-
         with open('key', 'wb') as f:
             f.write(key)
+        '''
 
         payload = {'type':'login', 'username':self.username, 'password':hash}
         self.client.send_message(json.dumps(payload).encode())
@@ -195,8 +196,9 @@ class ChatClientApp(App):
         # db operations
         # TODO
         # get key to decrypt db
-        db.decrypt_db(f'db/{self.username}.db', key) # for test purposes
         self.db_name = f'db/{self.username}.db'
+        # db.open_db(self.db_name)
+        # db.decrypt_db(self.db_name, key) # for test purposes
         names = db.get_names(self.db_name)
         self.contact_list.set_login()
         self.contact_list.set_contact(names)
@@ -458,10 +460,12 @@ class ChatClientApp(App):
         # TODO
         # encrypt db, close connection with server, exit
         try:
+            '''
             with open('key', 'rb') as f:
                 key = f.read()
-            self.client.close()
             db.encrypt_db(f'db/{self.username}.db', key) # for test purposes
+            '''
+            self.client.close()
         except AttributeError:
             pass
         time.sleep(0.2)
