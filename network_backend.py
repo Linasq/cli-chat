@@ -118,12 +118,7 @@ class PersistentClient:
         self.running = False
         self.thread = None
         self.handle_message = None
-        self.lock = threading.Lock()
         self.event = threading.Event()
-
-
-    def get_lock(self):
-        return self.lock
 
 
     def get_event(self):
