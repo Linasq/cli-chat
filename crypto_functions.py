@@ -120,6 +120,7 @@ def establish_session_key_initiator(user_id: str, my_keys: Dict[str, Any], recip
     ephemerals_to_send = {
             "type": "publish_ephemeral",
             "user_id": user_id,
+            "responder_id": recipient_keys[user_id],
             "EK_pub": x25519_pubkey_to_bytes(EK_pub).hex()
             }
 

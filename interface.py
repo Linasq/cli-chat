@@ -229,6 +229,7 @@ class ChatClientApp(App):
             payload = {
                     "type": "fetch_ephemeral",
                     "user_id": self.active_user
+                    "initiator_id": self.username
                     }
             self.client.send_message(json.dumps(payload).encode())
 
