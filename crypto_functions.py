@@ -241,5 +241,3 @@ def decrypt_db(key: bytes, db_name: str):
     #     "PK_pub": PK_pub,
     #     "user_id": user_id
     #     }
-    # REMEMBER TO DESERIALISE SUCKERS YOU RECIVE FROM SERVER
-
