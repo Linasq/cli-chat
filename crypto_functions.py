@@ -39,7 +39,7 @@ def deserialize_ed25519_public_key(data: bytes) -> Ed25519PublicKey:
 
 # IMPORTANT: call this function as my_keys = generate_and_publish_keys(...)
 
-def generate_and_publish_keys(sock: socket.socket, user_id: str) -> Dict[str, Any]:
+def generate_keys_to_send(user_id: str) -> Tuple[Dict[str, str], Dict[str, Any]]:
     # IK: signature key pair
     IK_sign_priv = Ed25519PrivateKey.generate()
     IK_sign_pub = IK_sign_priv.public_key()
@@ -65,9 +65,8 @@ def generate_and_publish_keys(sock: socket.socket, user_id: str) -> Dict[str, An
         "SPK_sig": signature.hex()
     }
 
-    sock.sendall(json.dumps(payload).encode())
 
-    return {
+    my_keys = {
         "IK_sign_priv": IK_sign_priv,
         "IK_sign_pub": IK_sign_pub,
         "IK_dh_priv": IK_dh_priv,
@@ -77,64 +76,12 @@ def generate_and_publish_keys(sock: socket.socket, user_id: str) -> Dict[str, An
         "user_id": user_id
     }
 
-# --- Ephemeral key publication ---
+    return payload, my_keys
 
-def publish_ephemeral(sock: socket.socket, user_id: str, EK_pub: X25519PublicKey) -> None:
-    payload = {
-        "type": "publish_ephemeral",
-        "user_id": user_id,
-        "EK_pub": serialize_public_key(EK_pub).hex()
-    }
-    sock.sendall(json.dumps(payload).encode())
-
-# --- Fetch ephemeral key from the other party ---
-
-def fetch_ephemeral(sock: socket.socket, user_id: str) -> X25519PublicKey:
-    request = {
-        "type": "fetch_ephemeral",
-        "user_id": user_id
-    }
-    sock.sendall(json.dumps(request).encode())
-    response = sock.recv(4096)
-    data = json.loads(response.decode())
-    return deserialize_x25519_public_key(bytes.fromhex(data["EK_pub"]))
-
-# --- Fetch recipient's keys from the server ---
-
-# IMPORTANT: call as recipient_keys = fetch_recipient_keys(...)
-
-def fetch_recipient_keys(sock: socket.socket, recipient_id: str) -> Dict[str, Any]:
-    request = {
-        "type": "fetch_keys",
-        "user_id": recipient_id
-    }
-    sock.sendall(json.dumps(request).encode())
-    response = sock.recv(4096)
-    data = json.loads(response.decode())
-
-    IK_sign_pub = deserialize_ed25519_public_key(bytes.fromhex(data["IK_sign_pub"]))
-    IK_dh_pub = deserialize_x25519_public_key(bytes.fromhex(data["IK_dh_pub"]))
-    PK_pub = deserialize_x25519_public_key(bytes.fromhex(data["PK_pub"]))
-    SPK_sig = bytes.fromhex(data["SPK_sig"])
-
-    # Verify SPK signature
-    IK_sign_pub.verify(SPK_sig, serialize_public_key(PK_pub))
-
-    return {
-        "IK_sign_pub": IK_sign_pub,
-        "IK_dh_pub": IK_dh_pub,
-        "PK_pub": PK_pub
-    }
 
 # --- Initiator (A) ---
-
-def establish_session_key_initiator(
-    sock: socket.socket,
-    my_keys: Dict[str, Any],
-    recipient_id: str
-) -> Tuple[bytes, str]:
-    recipient_keys = fetch_recipient_keys(sock, recipient_id)
-
+#before calling this function you need to fetch recipient keys from the server and pass it as an argument for this function
+def establish_session_key_initiator(user_id: str, my_keys: Dict[str, Any], recipient_keys: Dict[str, Any]):
     # Generate EK
     EK_priv = X25519PrivateKey.generate()
     EK_pub = EK_priv.public_key()
@@ -148,24 +95,21 @@ def establish_session_key_initiator(
     md5_hash = hash_md5(SK)
 
     # Publish EK
-    publish_ephemeral(sock, my_keys["user_id"], EK_pub)
+    ephemerals_to_send = {
+            "type": "publish_ephemeral",
+            "user_id": user_id,
+            "EK_pub": serialize_public_key(EK_pub).hex()
+            }
 
-    return SK, md5_hash
+    return SK, md5_hash, ephemerals_to_send
 
 # --- Responder (B) ---
-
-def establish_session_key_responder(
-    sock: socket.socket,
-    my_keys: Dict[str, Any],
-    sender_id: str
-) -> Tuple[bytes, str]:
-    EK_pub = fetch_ephemeral(sock, sender_id)
-    sender_keys = fetch_recipient_keys(sock, sender_id)
-
+#before calling this function you need to fech for sender keys and ephemearl public key and pass it as arguments for this function
+def establish_session_key_responder(my_keys: Dict[str, Any], sender_keys: Dict[str, Any], ephemeral: Dict[str, Any]):
     # DH exchanges
     DH1 = sender_keys["IK_dh_pub"].exchange(my_keys["PK_priv"])
-    DH2 = EK_pub.exchange(my_keys["IK_dh_priv"])
-    DH3 = EK_pub.exchange(my_keys["PK_priv"])
+    DH2 = ephemeral["EK_pub"].exchange(my_keys["IK_dh_priv"])
+    DH3 = ephemeral["EK_pub"].exchange(my_keys["PK_priv"])
 
     SK = kdf(DH1, DH2, DH3)
     md5_hash = hash_md5(SK)
@@ -223,6 +167,30 @@ def decrypt_message(key: bytes, ciphertext: bytes) -> bytes:
 
     return msg
 
-# --- Server functions ---
-
+# --- data to send/recive format ---
+    # basic keys to send
+    # payload = {
+    #     "type": "publish_keys",
+    #     "user_id": user_id,
+    #     "IK_sign_pub": IK_sign_pub.public_bytes(Encoding.Raw, PublicFormat.Raw).hex(),
+    #     "IK_dh_pub": serialize_public_key(IK_dh_pub).hex(),
+    #     "PK_pub": pk_pub_bytes.hex(),
+    #     "SPK_sig": signature.hex()
+    # }
+    # request for basic keys
+    #    request = {
+    #       "type": "fetch_keys",
+    #       "user_id": recipient_id
+    #       }
+    # your keys returned in generate_keys_to_send
+    # my_keys = {
+    #     "IK_sign_priv": IK_sign_priv,
+    #     "IK_sign_pub": IK_sign_pub,
+    #     "IK_dh_priv": IK_dh_priv,
+    #     "IK_dh_pub": IK_dh_pub,
+    #     "PK_priv": PK_priv,
+    #     "PK_pub": PK_pub,
+    #     "user_id": user_id
+    #     }
+    # REMEMBER TO DESERIALISE SUCKERS YOU RECIVE FROM SERVER
 
