@@ -12,8 +12,6 @@ from textual.reactive import reactive
 '''
 TODO
 - dodac szyfrowanie
-- dodac wysylanie wiadomosci przez siec
-- dodac funkcje tworzaca grupy i zobaczyc czy dziala wysylanie do wielu na raz ludzi
 '''
 
 def get_time():
@@ -312,7 +310,6 @@ class ChatClientApp(App):
         db.insert_chat(self.db_name, get_time(), name, 'APP', f'Successfully created group "{name}"', group) # add msg
         names = db.get_names(self.db_name) # update contact list
         self.contact_list.set_contact(names)
-        # TODO send to others that this group has been added
         return
 
 
@@ -325,15 +322,15 @@ class ChatClientApp(App):
         if msg['type'] in ['login', 'register', 'is_registered']:
             self.error_msg = msg['msg']
             self.client.set_event()
-        # TODO fix logic and create table if someone sends msg
         elif msg['type'] == 'msg':
             if not msg['name']:
-                tmp = msg['src']
+                name = msg['src']
+                db.get_history(self.db_name, name) # create table if not exists
             else:
-                tmp = msg['name']
-            db.insert_chat(self.db_name, get_time(), tmp, msg['src'], msg['msg'], [''])
-            if self.active_user == tmp:
-                self.chat_display.append_message(tmp, msg['msg'], None, True)
+                name = msg['name']
+            db.insert_chat(self.db_name, get_time(), name, msg['src'], msg['msg'], [''])
+            if self.active_user == name:
+                self.chat_display.append_message(name, msg['msg'], None, True)
 
 
     def set_client(self, client: net.PersistentClient):
