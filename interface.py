@@ -326,11 +326,13 @@ class ChatClientApp(App):
             if not msg['name']:
                 name = msg['src']
                 db.get_history(self.db_name, name) # create table if not exists
+                names = db.get_names(self.db_name)
+                self.contact_list.set_contact(names)
             else:
                 name = msg['name']
             db.insert_chat(self.db_name, get_time(), name, msg['src'], msg['msg'], [''])
             if self.active_user == name:
-                self.chat_display.append_message(name, msg['msg'], None, True)
+                self.chat_display.append_message(msg['src'], msg['msg'], None, True)
 
 
     def set_client(self, client: net.PersistentClient):

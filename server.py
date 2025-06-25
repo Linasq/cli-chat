@@ -112,6 +112,8 @@ def handle_message(message: dict):
             net.send_to_client(dst_ip, json.dumps(msg_to_send).encode())
         else:
             for nick in dst_username:
+                if nick == src_username:
+                    continue
                 dst_ip = active_clients[nick]
                 msg_to_send = {
                     "type": "msg",
