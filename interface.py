@@ -61,6 +61,9 @@ class ChatDisplay(VerticalScroll):
 
 
     def remove_messages(self):
+        '''
+        Removes all messages from screen
+        '''
         how_many = len(self.messages)
         for _ in range (how_many):
             self.messages.pop()
@@ -68,6 +71,9 @@ class ChatDisplay(VerticalScroll):
 
 
     def append_message(self, sender: str, content: str, date=None, recv=False):
+        '''
+        Prints message to the screen, has several additional options
+        '''
         prefix = f'[{date}]' if date else ''
         self.messages.append(f"{prefix} {sender}: {content}")
         self.update_messages(recv)
@@ -151,6 +157,13 @@ class ChatClientApp(App):
 
     
     def login(self, msg: list[str]):
+        '''
+        It saves username and hashes password. It then constructs payload that is sent to server.
+        After few seconds it should get response back, which will determine next process.
+
+        If login went smoothly, it decrypts DB, get contacts and updates them.
+        Also it sets up login state and prints welcome message
+        '''
         if len(msg) != 3:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'ERROR: try command "/login user password"')
@@ -191,6 +204,13 @@ class ChatClientApp(App):
     # TODO check if user we want to connect with is registerd
     # create / open chat
     def chat(self, message: list[str]):
+        '''
+        It tries to create / open chat with given username
+        If the user exist it then sanitizes username, sets it as active user
+        and gets history from chat.
+
+        If there is any history it prints it out and updates contact list
+        '''
         if not self.logged_in:
             self.chat_display.remove_messages()
             self.chat_display.append_message('App', 'You are not logged in')
@@ -218,6 +238,13 @@ class ChatClientApp(App):
 
 
     def register(self, msg: list[str]):
+        '''
+        Tries to register user specified by username and password
+        by sending a payload containing login and passwords hash
+        to server.
+
+        It prints out SUCCESS message on success
+        '''
         if len(msg) != 3:
             self.chat_display.append_message('App', 'ERROR: wrong usage of command "/register". Try:')
             self.chat_display.append_message('App', '/register user password')
@@ -248,9 +275,13 @@ class ChatClientApp(App):
         return 
 
 
-    # TODO
-    # while creating, send and add to db new msg, thanks this we will save users
     def add_group(self, msg: list[str]):
+        '''
+        Creates group "name" with usernames seperated by ","
+        Checks if each user is registered
+        Creates table with given name
+        Inserts msg to db
+        '''
         self.chat_display.remove_messages()
         self.active_user = ''
 
@@ -268,7 +299,6 @@ class ChatClientApp(App):
         if self.username not in group:
             group.append(self.username)
 
-        # TODO check if users are registered
         for user in group:
             payload = {'type': 'is_registered', 'username':user}
             self.client.send_message(json.dumps(payload).encode())
@@ -288,18 +318,20 @@ class ChatClientApp(App):
         db.insert_chat(self.db_name, get_time(), name, 'APP', f'Successfully created group "{name}"', group) # add msg
         names = db.get_names(self.db_name) # update contact list
         self.contact_list.set_contact(names)
+        # TODO send to others that this group has been added
         return
 
 
-    # TODO
-    # while getting msg from server, we need to recognize 
-    # whether it is message from server or from other user
     def recv_msg(self, data: bytes):
+        '''
+        Handles incoming messages 
+        '''
         msg = json.loads(data)
 
         if msg['type'] in ['login', 'register', 'is_registered']:
             self.error_msg = msg['msg']
             self.client.set_event()
+        # TODO fix logic and create table if someone sends msg
         elif msg['type'] == 'msg':
             if msg['src'] and msg['name']:
                 tmp = msg['src']
@@ -313,10 +345,22 @@ class ChatClientApp(App):
 
 
     def set_client(self, client: net.PersistentClient):
+        '''
+        Sets object net.PersistentClient
+        Needed to network stuff
+        '''
         self.client = client
 
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
+        '''
+        Inputs from user are being processed by this function.
+        
+        First input is split to check the 1st word
+        1st word specifies what function will handle message
+        
+        If there is nothing special in input, the input is send to choosen active user / group
+        '''
         message = event.value.split(' ')
         self.input.value = ""
        
@@ -348,8 +392,6 @@ class ChatClientApp(App):
             self.input.value = ""
         # print message and send it to the choosen user
         else:
-            # TODO
-            # send over network
             if self.active_user:
                 db.insert_chat(self.db_name, get_time(), self.active_user, 'Ty', ' '.join(message), self.group)
                 if self.group != [""] and self.group:
@@ -367,6 +409,9 @@ class ChatClientApp(App):
 
     # quit app, encrypt db, close connection
     def action_on_exit(self):
+        '''
+        Callable function, that handles closing the app
+        '''
         # TODO
         # encrypt db, close connection with server, exit
         try:

@@ -1,20 +1,33 @@
 from base64 import b64decode, b64encode
 import sqlite3
 from cryptography.hazmat.primitives.ciphers.algorithms import AES256
-from datetime import datetime
 from os import mkdir
 
 def encrypt_db(db_name: str, key: bytes):
+    '''
+    Encrypts Database under given directory
+    '''
     # cipher = aes.new(key, aes.MODE_ECB)
     # print(cipher)
     pass
 
 
 def decrypt_db(db_name: str, key: bytes):
+    '''
+    Decrypts Database under given directory
+    '''
     pass
 
 
 def open_db(db_name: str):
+    '''
+    Opens Database located under given directory.
+    It's used only in other DB functions
+
+    Returns:
+        sqlite3.Cursor
+        sqlite3.Connection
+    '''
     try:
         db = sqlite3.connect(db_name)
     except:
@@ -26,6 +39,10 @@ def open_db(db_name: str):
 
 
 def close_db(cursor: sqlite3.Cursor, db: sqlite3.Connection):
+    '''
+    Closes Connection and Cursor from given DB.
+    It also commits all changes that have been made.
+    '''
     db.commit()
     cursor.close()
     db.close()
@@ -33,6 +50,9 @@ def close_db(cursor: sqlite3.Cursor, db: sqlite3.Connection):
 
 
 def get_names(db_name: str):
+    '''
+    Returns table names from db_name
+    '''
     cursor, db = open_db(db_name)
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
     names = cursor.fetchall()
@@ -41,6 +61,12 @@ def get_names(db_name: str):
 
 
 def get_history(db_name: str, name: str):
+    '''
+    Creates table if not exists and return its contents
+
+    Return: -> List[Tuple(str)]
+        timestamp, name, msg, users
+    '''
     cursor, db = open_db(db_name)
     cursor.execute(f'''create table if not exists {name}(
         id INTEGER PRIMARY KEY autoincrement,
@@ -63,6 +89,10 @@ def get_history(db_name: str, name: str):
 
 
 def insert_chat(db_name: str, timestamp:str, table_name: str, name: str, text: str, users: list[str]):
+    '''
+    Inserts into DB values:
+        timestamp, name, msg, users
+    '''
     cursor, db = open_db(db_name)
     text_base = b64encode(text.encode())
     cursor.execute(f'''insert into {table_name}(timestamp, name, msg, users) values(?, ?, ?, ?)''', (timestamp, name, text_base, ','.join(users)))
@@ -71,6 +101,12 @@ def insert_chat(db_name: str, timestamp:str, table_name: str, name: str, text: s
 
 
 def sanitize_input(msg:str) -> str:
+    '''
+    Sanitizes input :O
+
+    Return:
+        safe input
+    '''
     bad_actors = [',', '.', ';', '"', "'", '(', ')', '|', '-', '#', '[', ']', '{','}', ':']
     for i in bad_actors:
         msg=msg.replace(i, '')
@@ -81,6 +117,14 @@ def sanitize_input(msg:str) -> str:
 
 
 def srv_open_db(db_name: str):
+    '''
+    Opens server.db and creates 2 tables if those do not exist:
+        registered_users - storage with every registered user
+        messages - storage with messages to offline clients
+
+    Return:
+        sqlite3.Cursor, sqlite3.Connection 
+    '''
     db = sqlite3.connect(db_name)
     cursor = db.cursor()
     cursor.execute(f'''create table if not exists registered_users(
@@ -107,10 +151,16 @@ def srv_open_db(db_name: str):
     return cursor, db
 
 
-def srv_get_messages(username: str):#(cursor: sqlite3.Cursor, username: str):
+def srv_get_messages(username: str):
+    '''
+    Returns messages from given offline user
+
+    Returs:
+        timestamp, src, dst, name, msg
+    '''
     cursor, db = open_db('server.db')
     cursor.execute(f'''
-        select timestamp, src, dst, msg from messages
+        select timestamp, src, dst, name, text from messages
         where dst like ?
            ''', (username, ))
 
@@ -119,7 +169,13 @@ def srv_get_messages(username: str):#(cursor: sqlite3.Cursor, username: str):
     return msg
 
 
-def srv_get_logins(username: str):#(cursor: sqlite3.Cursor, username: str):
+def srv_get_logins(username: str):
+    '''
+    Returns credentials for given username (if exists)
+
+    Returs:
+        timestamp, src, dst, name, msg
+    '''
     cursor, db = open_db('server.db')
     cursor.execute('''
         select username, password from registered_users where username like ?
@@ -129,7 +185,17 @@ def srv_get_logins(username: str):#(cursor: sqlite3.Cursor, username: str):
     return users
 
 
-def srv_insert_messages(table_name: str, *args):#(db: sqlite3.Connection, cursor: sqlite3.Cursor, table_name: str, *args):
+def srv_insert_messages(table_name: str, *args):
+    '''
+    Inserts messages into DB.
+    You can choose whether you inserts into "registered_users" or "messages"
+    
+    "registered_users" needs:
+        username, password
+
+    "messages" needs:
+        timestamp, src, dst, name, msg
+    '''
     cursor, db = srv_open_db('server.db')
     if table_name == 'registered_users' and len(args) == 2:
         cursor.execute(f'''
